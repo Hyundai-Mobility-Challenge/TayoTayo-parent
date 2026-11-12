@@ -1,0 +1,14 @@
+const assert=require('node:assert/strict'),fs=require('node:fs'),vm=require('node:vm');
+const window={};vm.runInNewContext(fs.readFileSync(require('node:path').join(__dirname,'../common/web/stop-timeline.js'),'utf8'),{window,WeakMap,Math,Number,Array});
+const model=window.ShuttleStopTimeline.model;
+const view={tripId:'synthetic',phase:'DRIVING',source:'PLEOS_NAVI',serverTime:100,progress:[{current:true},{kind:'PICKUP'}],timeline:{current:0,totalSeconds:300,fraction:.8,nextEta:{seconds:60,receivedAt:100000},paused:false}};
+assert.equal(model(view).position,.8);assert.equal(model({...view,clientElapsedSeconds:15}).position,.85);
+assert.equal(model({...view,stale:true,clientElapsedSeconds:15}).position,.8);assert.equal(model({...view,clientElapsedSeconds:31}).paused,true);
+assert.equal(model({...view,timeline:{...view.timeline,paused:true}}).seconds,null);
+assert.equal(model({...view,timeline:{...view.timeline,nextEta:{seconds:0,receivedAt:100000}}}).position,.95);
+assert.equal(model({...view,phase:'ALIGHTING'}).position,1);
+assert.equal(model({...view,timeline:{current:1,fraction:0,paused:true}}).position,1);
+assert.equal(model({...view,timeline:{current:99,fraction:2,paused:true}}).position,2);
+assert.equal(model({...view,source:'SIMULATED'}).simulated,true);
+assert.equal(model({...view,timeline:{current:1,key:'reroute',paused:true}}).seconds,null);
+console.log('10 timeline contracts passed: ETA proportion, elapsed animation, stale freeze, pause, arrival not inferred, confirmed stop, next leg, bounds, simulated label, reroute unavailable.');

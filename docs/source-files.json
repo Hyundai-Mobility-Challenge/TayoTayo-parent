@@ -1,0 +1,110 @@
+[
+  {
+    "path": "build.gradle.kts",
+    "sha256": "e28c8b2cf20983ef3ba67d3b044287c559b49fe8232b61c610791afcf636c9e7"
+  },
+  {
+    "path": "common/kotlin/com/hanhyo/shuttle/net/Api.kt",
+    "sha256": "85c7af5c6864a6ab88f393d7fea590ca07151f10ac89c348cadc33c58f71622f"
+  },
+  {
+    "path": "common/web/route-map.js",
+    "sha256": "db5872a546018964dcc2ffdb517d75276676243d8390983b080080cb1151b79d"
+  },
+  {
+    "path": "common/web/stop-timeline.js",
+    "sha256": "0512bddbec393251161d8fe0c7f5b9df5f34d10b4b9cd34dfa1e83587b30a6f6"
+  },
+  {
+    "path": "docs/DEMO_STEP_BY_STEP.md",
+    "sha256": "01daa384fa7a60356419a85464dff83c52532c5829abec795cbb50abc15927c9"
+  },
+  {
+    "path": "docs/INSTITUTION_DEMO.md",
+    "sha256": "cda795b7e36ed31a132a40ea027d79092b9efe0f6a1b3732a9d028dd73a7c68b"
+  },
+  {
+    "path": "docs/LIVE_TRACKING.md",
+    "sha256": "5075e9e23dcea2f58710f39b29d8afdebd91bdee87d4257ecfc49d0af9e7f206"
+  },
+  {
+    "path": "gradle.properties",
+    "sha256": "0c495a571fdc2d2ee3e9e1cba39b093a8723f0b73f8ce5256fcc23defb24efb4"
+  },
+  {
+    "path": "gradle/libs.versions.toml",
+    "sha256": "8fca496ce0dbd7bb522c1ca24c9b0f0ed162ad1047e2afbac8fbc92031d6b2ed"
+  },
+  {
+    "path": "gradle/wrapper/gradle-wrapper.jar",
+    "sha256": "e996d452d2645e70c01c11143ca2d3742734a28da2bf61f25c82bdc288c9e637"
+  },
+  {
+    "path": "gradle/wrapper/gradle-wrapper.properties",
+    "sha256": "dafb226d06402c4b7d9c1a9b6833c26eaa117c08d2b4a16636a2d54ea8abc33f"
+  },
+  {
+    "path": "gradlew",
+    "sha256": "c15a47b60a4eeede9ffee33433fd990d8b6236607372b9bb1f6dc51b07b78c39"
+  },
+  {
+    "path": "gradlew.bat",
+    "sha256": "af835f98787e9269af5a046edcb821a592fed372139df7b947b471a63cfc236b"
+  },
+  {
+    "path": "parent/build.gradle.kts",
+    "sha256": "aa90031ea86f597f3f4e2a6e07a1fcd1c7836a607834d1122e89524ab11f6f09"
+  },
+  {
+    "path": "parent/src/androidTest/java/com/hanhyo/shuttle/parent/ParentDeviceTest.kt",
+    "sha256": "9400b383c59f77159a6564ae354c05db04556c8abdca8e4dcb904883cb6d1766"
+  },
+  {
+    "path": "parent/src/androidTest/java/com/hanhyo/shuttle/parent/TrackingUiTest.kt",
+    "sha256": "24be9393d5bf5c124af45718ada2a60e37a9649315eb85e8c442c9a78811899d"
+  },
+  {
+    "path": "parent/src/debug/AndroidManifest.xml",
+    "sha256": "f61c53687d11bbfa67faea9cafc0704ccae0e1f5e31c9260cb54c515366b9340"
+  },
+  {
+    "path": "parent/src/main/AndroidManifest.xml",
+    "sha256": "d316b3d0e7e39d6e8f137e4e2dd6f6b896d910e334a9cf82cf202bbf48a24451"
+  },
+  {
+    "path": "parent/src/main/java/com/hanhyo/shuttle/parent/GuardianJourney.kt",
+    "sha256": "ea4c1fc7fb511ef2e6714a532a5ce7051df8f1612de3ea71b77aed283bee8049"
+  },
+  {
+    "path": "parent/src/main/java/com/hanhyo/shuttle/parent/MainActivity.kt",
+    "sha256": "c3c78319513800f0c21c0cc4793873e2664744204b1be6eb7c0a7c73b215d102"
+  },
+  {
+    "path": "parent/src/main/java/com/hanhyo/shuttle/parent/ParentModel.kt",
+    "sha256": "0b66ad7a6f2cb974092a32b051a11eb4969a0cd3b866db8e38969ff15ba77dbe"
+  },
+  {
+    "path": "parent/src/main/java/com/hanhyo/shuttle/parent/PushService.kt",
+    "sha256": "4b920c3929bb6bb99508183e00396d93785f36974b26c828ca1102e6fb3de23f"
+  },
+  {
+    "path": "parent/src/main/java/com/hanhyo/shuttle/parent/TrackingCard.kt",
+    "sha256": "f9879d56917b1a0d869eea8ec6f1b6ac7b2b530ab2f2843f743204fa3ca0ea40"
+  },
+  {
+    "path": "parent/src/main/java/com/hanhyo/shuttle/parent/TrackingMapDialog.kt",
+    "sha256": "4dc85a6a1fc5ee2f25547175ca37941e5fd47a0e367aae2cd6d7fbb1a36f627f"
+  },
+  {
+    "path": "parent/src/main/res/drawable/ic_shuttle.xml",
+    "sha256": "583d5fdce8e64f61cdb1a0c5763046b1102f362beb05431ba6b847a96f505a35"
+  },
+  {
+    "path": "scripts/test-route-map.cjs",
+    "sha256": "ea87999b15f27b5df0e1ed8494cf14a7c812f261ce217d9d8735117f268277e8"
+  },
+  {
+    "path": "scripts/test-stop-timeline.cjs",
+    "sha256": "7f91bd91c7531bdc935795089c2a4e61f76bf8d2f64a8a82c9483b2eb0513281"
+  }
+]
