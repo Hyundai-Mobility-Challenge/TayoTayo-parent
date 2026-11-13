@@ -24,7 +24,7 @@ object Push {
     fun prefs(context: Context) = context.getSharedPreferences("guardian-account", 0)
     fun channel(context: Context) {
         context.getSystemService(NotificationManager::class.java).createNotificationChannel(
-            NotificationChannel("dropoff", "하원 출발 · 하차 알림", NotificationManager.IMPORTANCE_HIGH))
+            NotificationChannel("dropoff", "등하원 운행 알림", NotificationManager.IMPORTANCE_HIGH))
     }
     fun register(context: Context) {
         val app = context.applicationContext
@@ -73,12 +73,16 @@ class PushService : FirebaseMessagingService() {
         Push.channel(this)
         if (Build.VERSION.SDK_INT >= 33 && ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) return
         val id = message.data["notificationId"] ?: message.data["eventId"] ?: message.messageId ?: return
-        val pending = PendingIntent.getActivity(this, id.hashCode(), Intent(this, MainActivity::class.java), PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
+        val target=Intent(this, MainActivity::class.java).putExtra("openInbox",true).putExtra("notificationId",id)
+            .addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP)
+        val pending = PendingIntent.getActivity(this, id.hashCode(), target, PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
+        val title=message.notification?.title ?: message.data["title"] ?: "타요타요"
+        val body=message.notification?.body ?: message.data["body"] ?: "새 운행 기록이 있습니다."
         getSystemService(NotificationManager::class.java).notify(id, 1,
             NotificationCompat.Builder(this, "dropoff").setSmallIcon(R.drawable.ic_shuttle)
-                .setContentTitle(message.notification?.title ?: "통학메이트")
-                .setContentText(message.notification?.body ?: "새 운행 기록이 있습니다.")
-                .setStyle(NotificationCompat.BigTextStyle().bigText(message.notification?.body ?: "새 운행 기록이 있습니다."))
+                .setContentTitle(title)
+                .setContentText(body)
+                .setStyle(NotificationCompat.BigTextStyle().bigText(body))
                 .setAutoCancel(true).setOnlyAlertOnce(true).setContentIntent(pending).build())
     }
 }

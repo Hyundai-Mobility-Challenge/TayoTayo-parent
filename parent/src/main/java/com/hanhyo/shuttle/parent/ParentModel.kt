@@ -29,6 +29,9 @@ class ParentModel(app: Application) : AndroidViewModel(app) {
     var pushStatus by mutableStateOf(prefs.getString("pushStatus", "알림 연결을 확인해 주세요.")!!); private set
     var state by mutableStateOf(JSONObject().put("children", JSONArray()).put("events", JSONArray())); private set
     val tracking = mutableStateMapOf<String, JSONObject>()
+    val morningTracking = mutableStateMapOf<String, JSONObject>()
+    val afternoonTracking = mutableStateMapOf<String, JSONObject>()
+    val directions = mutableStateMapOf<String, SchoolDirection>()
     val childTools = mutableStateMapOf<String, JSONObject>()
 
     private fun request(path: String, data: JSONObject? = null, method: String? = null): JSONObject {
@@ -89,9 +92,9 @@ class ParentModel(app: Application) : AndroidViewModel(app) {
         loadTracking()
     }
 
-    fun refresh() = work { loadChildren() }
+    fun refresh() { if (loggedIn) work { loadChildren(); loadTracking() } }
 
-    fun loadChildTools(childId: String) = work { loadChildToolsNow(childId) }
+    fun loadChildTools(childId: String, serviceDate: String = LocalDate.now().toString()) = work { loadChildToolsNow(childId, serviceDate) }
 
     private fun loadChildToolsNow(childId: String, serviceDate: String = LocalDate.now().toString()) {
         val requests = request("/api/v1/guardian/children/$childId/attendance-requests?limit=20")
@@ -104,12 +107,16 @@ class ParentModel(app: Application) : AndroidViewModel(app) {
             .put("serviceDate", serviceDate).put("dropOff", dropOff).put("pickUp", pickUp)
     }
 
-    fun createAttendanceRequest(childId: String, serviceDate: String, direction: String, requestType: String, reason: String) = work {
+    fun createAttendanceRequest(childId: String, serviceDate: String, direction: String, requestType: String, reason: String, onSaved: () -> Unit = {}) = work {
+        require(!LocalDate.parse(serviceDate).isBefore(LocalDate.now())) { "지난 날짜는 변경할 수 없습니다." }
         val body = JSONObject().put("serviceDate", serviceDate).put("direction", direction).put("requestType", requestType)
         if (reason.isNotBlank()) body.put("reasonText", reason.trim())
         request("/api/v1/guardian/children/$childId/attendance-requests", body)
         message = "출결·하원 변경 요청을 접수했습니다."
-        loadChildToolsNow(childId, serviceDate)
+        withContext(Dispatchers.Main) { onSaved() }
+        runCatching { loadChildToolsNow(childId, serviceDate) }.onFailure {
+            message = "변경 요청은 접수됐습니다. 최신 목록은 연결 후 다시 확인해 주세요."
+        }
     }
 
     fun addAuthorizedPickupPerson(childId: String, name: String, relationship: String, validFrom: String, validTo: String) = work {
@@ -121,12 +128,16 @@ class ParentModel(app: Application) : AndroidViewModel(app) {
         loadChildToolsNow(childId)
     }
 
-    fun setDailyPickup(childId: String, serviceDate: String, direction: String, personType: String, pickupPersonId: String? = null) = work {
+    fun setDailyPickup(childId: String, serviceDate: String, direction: String, personType: String, pickupPersonId: String? = null, onSaved: () -> Unit = {}) = work {
+        require(!LocalDate.parse(serviceDate).isBefore(LocalDate.now())) { "지난 날짜는 변경할 수 없습니다." }
         val body = JSONObject().put("serviceDate", serviceDate).put("direction", direction).put("personType", personType)
         if (personType == "AUTHORIZED_PERSON" && pickupPersonId != null) body.put("pickupPersonId", pickupPersonId.toLong())
         request("/api/v1/guardian/children/$childId/daily-pickups", body, "PUT")
-        message = "${if (direction == "DROP_OFF") "등원" else "하원"} 픽업 담당자를 저장했습니다."
-        loadChildToolsNow(childId, serviceDate)
+        message = "${if (direction == "PICK_UP") "등원" else "하원"} 픽업 담당자를 저장했습니다."
+        withContext(Dispatchers.Main) { onSaved() }
+        runCatching { loadChildToolsNow(childId, serviceDate) }.onFailure {
+            message = "마중 보호자는 저장됐습니다. 최신 목록은 연결 후 다시 확인해 주세요."
+        }
     }
     private fun loadChildren() {
         val result = request("/api/v1/me/children")
@@ -140,14 +151,14 @@ class ParentModel(app: Application) : AndroidViewModel(app) {
             if (!seenChildIds.add(childId)) continue
             children.put(JSONObject().put("id", childId).put("name", c.optString("name"))
                 .put("className", c.optString("className")).put("institution", c.optString("orgName", "기관"))
-                .put("relationship", c.optString("relationship")).put("vehicle", "운행 정보는 오늘 기록에서 확인"))
+                .put("relationship", c.optString("relationship")).put("vehicle", c.optString("vehicleName")))
             val history = request("/api/v1/guardian/children/$childId/trips?direction=DROP_OFF&limit=10").optJSONArray("items") ?: JSONArray()
             for (j in 0 until history.length()) {
                 val trip = history.getJSONObject(j)
                 val status = trip.optString("childStatus", trip.optString("tripStatus"))
                 val body = when (status) { "BOARDED" -> "셔틀 탑승이 기록되었습니다."; "HANDED_OVER" -> "보호자에게 인계가 기록되었습니다."; "DROPPED_OFF" -> "하차가 완료되었습니다."; "NOT_BOARDED" -> "미탑승이 기록되었습니다."; else -> "오늘 하원 운행 기록이 업데이트되었습니다." }
                 val stamp = (trip.optString("droppedOffAt").ifBlank { trip.optString("boardedAt") }).toEpochMillis()
-                events.add(JSONObject().put("body", body).put("recorded", stamp).put("tripId", trip.optString("id")))
+                events.add(JSONObject().put("body", "${c.optString("name")} · $body").put("childId",childId).put("recorded", stamp).put("tripId", trip.optString("id")))
             }
         }
         state = JSONObject().put("children", children).put("events", JSONArray().apply { events.sortedByDescending { it.optLong("recorded") }.forEach(::put) })
@@ -162,52 +173,32 @@ class ParentModel(app: Application) : AndroidViewModel(app) {
         val children = state.optJSONArray("children") ?: return
         for (i in 0 until children.length()) {
             val childId = children.getJSONObject(i).getString("id")
-            val row = request("/api/v1/guardian/children/$childId/today?direction=DROP_OFF")
-            tracking[childId] = normalizeToday(row)
+            val morning = request("/api/v1/guardian/children/$childId/today?direction=PICK_UP")
+            val afternoon = request("/api/v1/guardian/children/$childId/today?direction=DROP_OFF")
+            val direction = chooseDirection(morning, afternoon, java.time.LocalTime.now(java.time.ZoneId.of("Asia/Seoul")))
+            morningTracking[childId] = normalizeJourney(morning, SchoolDirection.Morning)
+            afternoonTracking[childId] = normalizeJourney(afternoon, SchoolDirection.Afternoon)
+            directions[childId] = direction
+            tracking[childId] = if (direction == SchoolDirection.Morning) morningTracking[childId]!! else afternoonTracking[childId]!!
+            val shareId=prefs.getString("share:$childId:${tracking[childId]!!.optString("tripId")}",null)
+            if(shareId!=null) tracking[childId]!!.put("shares",JSONArray().put(JSONObject().put("id",shareId)))
         }
     }
 
-    private fun normalizeToday(row: JSONObject): JSONObject {
-        val status = row.optString("tripStatus", row.optString("status", "NO_TRIP_TODAY"))
-        val tripId = row.optString("tripId", "")
-        val childStatus = row.optString("childStatus", "EXPECTED")
-        val complete = childStatus == "DROPPED_OFF" || status == "COMPLETED"
-        val active = tripId.isNotBlank() && status in listOf("IN_PROGRESS", "RETURNING", "COMPLETED")
-        val now = System.currentTimeMillis()
-        val lat = row.optDouble("latitude", Double.NaN)
-        val lon = row.optDouble("longitude", Double.NaN)
-        val locationAt = row.optString("locationUpdatedAt").toEpochMillis()
-        val location = if (lat.isFinite() && lon.isFinite() && locationAt > 0) JSONObject().put("latitude", lat).put("longitude", lon)
-            .put("receivedAt", locationAt / 1000.0) else JSONObject.NULL
-        val etaSeconds = row.optInt("etaRemainingSec", -1)
-        val etaAt = row.optString("etaReceivedAt").toEpochMillis().takeIf { it > 0 } ?: locationAt
-        val eta = if (etaSeconds >= 0 && etaAt > 0) JSONObject().put("seconds", etaSeconds)
-            .put("minutes", kotlin.math.ceil(etaSeconds / 60.0).toInt()).put("receivedAt", etaAt / 1000.0).put("kind", "SERVER_REMAINING") else JSONObject.NULL
-        val arrived = row.optString("stopStatus") in listOf("ARRIVED", "COMPLETED")
-        return JSONObject().put("tripId", tripId).put("available", active).put("journeyStatus", if (complete) "COMPLETED" else "IN_PROGRESS")
-            .put("phase", status).put("serverTime", now / 1000.0).put("clientReceivedAt", now)
-            .put("location", location).put("source", "SERVER").put("stale", location == JSONObject.NULL || now - locationAt > 30_000)
-            .put("startedAt", row.optString("startedAt").toEpochMillis())
-            .put("completedAt", row.optString("droppedOffAt").toEpochMillis())
-            .put("pickup", JSONObject().put("name", row.optString("stopName", "등록된 하차 지점")))
-            .put("progress", JSONArray().put(JSONObject().put("name", row.optString("stopName", "등록된 하차 지점")).put("visited", arrived)))
-            .put("timeline", JSONObject().put("current", 0).put("paused", eta == JSONObject.NULL)
-                .put("fraction", 0).put("totalSeconds", etaSeconds.coerceAtLeast(0)).put("ownEta", eta).put("nextEta", eta))
-            .put("eta", eta).put("remainingStops", 0).put("shares", JSONArray())
-            .put("reason", if (tripId.isBlank()) "오늘 예정된 운행이 없습니다." else "현재 서버는 기본 운행 상태를 제공합니다.")
-    }
 
     fun shareTracking(childId: String, tripId: String, onLink: (String) -> Unit) = work {
         val result = request("/api/v1/guardian/children/$childId/trips/$tripId/share-links", JSONObject())
         prefs.edit().putString("share:$childId:$tripId", result.optString("id")).apply()
         val path = result.optString("url")
-        onLink(if (path.startsWith("http")) path else base + path)
+        tracking[childId]?.let { tracking[childId] = JSONObject(it.toString()).put("shares", JSONArray().put(JSONObject().put("id", result.optString("id")))) }
+        withContext(Dispatchers.Main) { onLink(if (path.startsWith("http")) path else base + path) }
     }
     fun revokeTracking(childId: String, tripId: String) = work {
         val linkId = prefs.getString("share:$childId:$tripId", null) ?: return@work
         request("/api/v1/guardian/share-links/$linkId/revoke", method = "POST")
         prefs.edit().remove("share:$childId:$tripId").apply()
-        refreshTracking()
+        tracking[childId]?.let { tracking[childId] = JSONObject(it.toString()).put("shares", JSONArray()) }
+        message = "공유 링크를 종료했습니다."
     }
     fun readPushStatus() { pushStatus = prefs.getString("pushStatus", "알림 연결을 확인해 주세요.")!! }
     fun requestInitialNotification(action: () -> Unit) {
@@ -216,10 +207,10 @@ class ParentModel(app: Application) : AndroidViewModel(app) {
         }
     }
     fun logout() = work {
-        Api.request(base, "/api/v1/auth/logout", data = JSONObject().put("refreshToken", prefs.getString("refreshToken", "")))
-        prefs.edit().clear().putString("base", base).apply()
+        Push.logout(getApplication())
         loggedIn = false; tracking.clear(); childTools.clear(); state = JSONObject().put("children", JSONArray()).put("events", JSONArray())
         message = "로그아웃했습니다."
+        morningTracking.clear(); afternoonTracking.clear(); directions.clear()
     }
 
     private fun clearSession() {
@@ -227,9 +218,9 @@ class ParentModel(app: Application) : AndroidViewModel(app) {
         loggedIn = false
         tracking.clear()
         childTools.clear()
+        morningTracking.clear(); afternoonTracking.clear(); directions.clear()
         state = JSONObject().put("children", JSONArray()).put("events", JSONArray())
     }
 
-    private fun String.toEpochMillis(): Long = runCatching { java.time.OffsetDateTime.parse(this).toInstant().toEpochMilli() }
-        .recoverCatching { java.time.LocalDateTime.parse(this).toInstant(java.time.ZoneOffset.UTC).toEpochMilli() }.getOrDefault(0L)
+    private fun String.toEpochMillis(): Long = epochMillis()
 }
