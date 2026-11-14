@@ -31,6 +31,22 @@ class MajungUiTest {
         val bitmap=target.captureToImage().asAndroidBitmap()
         File(output,"$name.png").outputStream().use { bitmap.compress(Bitmap.CompressFormat.PNG,100,it) }
     }
+    @Test fun handoverWaitsForSeparateDropoffRecord() {
+        render(data=previewJourney().put("journeyStatus","HANDED_OVER"))
+        compose.onNodeWithText("보호자 인계 완료").assertExists()
+        compose.onNodeWithText("인계 기록 · 하차 대기").assertExists()
+        compose.onNodeWithText("하차했어요").assertDoesNotExist()
+    }
+    @Test fun failedAutomaticShareCleanupCanBeRetriedAfterDropoff() {
+        var requested = false
+        render(actions=GuardianActions(revoke={_,_->requested=true}), data=previewJourney()
+            .put("journeyStatus","COMPLETED").put("shareCleanupError",true)
+            .put("shares",JSONArray().put(JSONObject().put("id","1"))))
+        compose.onNodeWithTag("share-cleanup-pending").performScrollTo().assertIsDisplayed()
+        compose.onNodeWithTag("home-revoke-share").performScrollTo().performClick()
+        compose.runOnIdle { assertTrue(requested) }
+        compose.onNodeWithText("통학 상황 공유").assertDoesNotExist()
+    }
     @Test fun tabsCalendarAndSelectedChildStayConnected() {
         render()
         compose.onNodeWithTag("tab-Home").assertIsSelected()

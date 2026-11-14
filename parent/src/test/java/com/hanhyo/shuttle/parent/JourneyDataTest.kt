@@ -42,4 +42,56 @@ class JourneyDataTest {
     @Test fun localServerDateUsesKoreanTimezone() {
         assertEquals("2026-11-12T08:20:00+09:00".epochMillis(),"2026-11-12T08:20:00".epochMillis())
     }
+    @Test fun jdbcServiceDateUsesKoreanCalendarDate() {
+        assertEquals("2026-11-14","2026-11-13T15:00:00.000Z".serviceDateText())
+        assertEquals("2026-11-14","2026-11-14".serviceDateText())
+        assertEquals("2026-11-14","2026-11-14T00:00:00".serviceDateText())
+        assertEquals("", "invalid".serviceDateText())
+        assertEquals("2026-11-14", normalizeJourney(row().put("serviceDate","2026-11-13T15:00:00.000Z"),SchoolDirection.Afternoon).getString("serviceDate"))
+    }
+    @Test fun smallClockSkewKeepsEtaButDoesNotExtendItsLifetime() {
+        val now="2026-11-12T08:20:00+09:00".epochMillis()
+        val value=row().put("etaRemainingSec",120).put("etaReceivedAt","2026-11-12T08:20:02+09:00")
+        val data=normalizeJourney(value,SchoolDirection.Afternoon,now)
+        assertEquals(now,data.getJSONObject("eta").getLong("receivedAt"))
+        value.put("etaReceivedAt","2026-11-12T08:20:06+09:00")
+        assertTrue(normalizeJourney(value,SchoolDirection.Afternoon,now).isNull("eta"))
+        value.put("etaReceivedAt","2026-11-12T08:19:29+09:00")
+        assertTrue(normalizeJourney(value,SchoolDirection.Afternoon,now).isNull("eta"))
+    }
+    @Test fun freshGpsCannotMakeMissingOrExpiredEtaFresh() {
+        val now="2026-11-12T08:20:00+09:00".epochMillis()
+        val base=row().put("latitude",37.5).put("longitude",127.0)
+            .put("locationUpdatedAt","2026-11-12T08:20:00+09:00").put("etaRemainingSec",120)
+        assertTrue(normalizeJourney(base,SchoolDirection.Morning,now).isNull("eta"))
+        base.put("etaReceivedAt","2026-11-12T08:19:00+09:00")
+        val result=normalizeJourney(base,SchoolDirection.Morning,now)
+        assertTrue(result.isNull("eta"))
+        assertTrue(result.getString("etaReason").contains("지연"))
+    }
+    @Test fun futureEtaIsRejectedAndCompletionIsNotArrival() {
+        val now="2026-11-12T08:20:00+09:00".epochMillis()
+        val data=normalizeJourney(row().put("etaRemainingSec",0).put("etaReceivedAt","2026-11-12T08:21:00+09:00")
+            .put("stopStatus","COMPLETED"),SchoolDirection.Afternoon,now)
+        assertTrue(data.isNull("eta"))
+        assertEquals("IN_PROGRESS",data.getString("journeyStatus"))
+    }
+    @Test fun connectionFailureRemovesEtaWithoutInventingCompletion() {
+        val now="2026-11-12T08:20:00+09:00".epochMillis()
+        val data=normalizeJourney(row().put("etaRemainingSec",30).put("etaReceivedAt","2026-11-12T08:20:00+09:00"),SchoolDirection.Afternoon,now)
+        val failed=journeyConnectionFailure(data)
+        assertTrue(failed.isNull("eta"))
+        assertTrue(failed.getJSONObject("timeline").isNull("ownEta"))
+        assertTrue(failed.getBoolean("connectionError"))
+        assertEquals("IN_PROGRESS",failed.getString("journeyStatus"))
+        assertFalse(data.isNull("eta")) // Keep immutable previous snapshots.
+    }
+    @Test fun notificationIdsMustBePositiveServerIds() {
+        assertEquals(NotificationTarget("12","34"),NotificationTarget.from("12","34"))
+        assertNull(NotificationTarget.from(null,"34"))
+        assertNull(NotificationTarget.from("0","34"))
+        assertNull(NotificationTarget.from("12","../34"))
+        assertNull(NotificationTarget.from("-1","34"))
+        assertNull(NotificationTarget.from("12","999999999999999999999"))
+    }
 }

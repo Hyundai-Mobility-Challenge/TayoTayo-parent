@@ -1,7 +1,7 @@
 package com.hanhyo.shuttle.parent
 
-import android.graphics.BitmapFactory
-import androidx.compose.foundation.Image
+import coil.compose.AsyncImage
+
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -10,22 +10,14 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.asImageBitmap
-import androidx.compose.ui.graphics.drawscope.DrawScope
-import androidx.compose.ui.graphics.drawscope.drawIntoCanvas
-import androidx.compose.ui.graphics.nativeCanvas
-import androidx.compose.ui.graphics.painter.Painter
 import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.Font
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.caverock.androidsvg.SVG
 
 /** Figma 마중 노트 tokens. Functional copy stays in Plex; Gaegu is for short headings. */
 object Majung {
@@ -49,6 +41,13 @@ object Majung {
     MaterialTheme(colorScheme=lightColorScheme(primary=Majung.Yellow, onPrimary=Majung.Text,
         secondary=Majung.Text, background=Majung.App, surface=Majung.Card, onSurface=Majung.Text,
         onBackground=Majung.Text, outline=Majung.Border, error=Majung.Error, surfaceTint=Majung.Card), typography=Typography(
+        displayLarge=Typography().displayLarge.merge(base),
+        displayMedium=Typography().displayMedium.merge(base),
+        displaySmall=Typography().displaySmall.merge(base),
+        headlineLarge=Typography().headlineLarge.merge(base),
+        headlineMedium=Typography().headlineMedium.merge(base),
+        headlineSmall=Typography().headlineSmall.merge(base),
+        labelSmall=Typography().labelSmall.merge(base),
         bodyLarge=base.copy(fontSize=16.sp,lineHeight=24.sp), bodyMedium=base.copy(fontSize=14.sp,lineHeight=20.sp),
         bodySmall=base.copy(fontSize=12.sp,lineHeight=18.sp), titleLarge=base.copy(fontSize=24.sp,lineHeight=35.sp,fontWeight=FontWeight.Bold),
         titleMedium=base.copy(fontSize=18.sp,lineHeight=26.sp,fontWeight=FontWeight.Bold),
@@ -59,29 +58,8 @@ object Majung {
 
 /** Exact exported Figma artwork. SVG viewport and PNG aspect ratio are preserved. */
 @Composable fun DesignAsset(file: String, description: String?, modifier: Modifier=Modifier) {
-    val context=LocalContext.current
-    if(file.endsWith(".png")) {
-        val bitmap=remember(file) { context.assets.open("design/$file").use { BitmapFactory.decodeStream(it).asImageBitmap() } }
-        Image(bitmap,description,modifier,contentScale=ContentScale.Fit)
-    } else {
-        val painter=remember(file) {
-            val svg=SVG.getFromAsset(context.assets,"design/$file")
-            val picture=svg.renderToPicture()
-            object: Painter() {
-                override val intrinsicSize=Size(picture.width.toFloat(),picture.height.toFloat())
-                override fun DrawScope.onDraw() {
-                    drawIntoCanvas { canvas ->
-                        val native=canvas.nativeCanvas
-                        val save=native.save()
-                        native.scale(size.width/picture.width,size.height/picture.height)
-                        native.drawPicture(picture)
-                        native.restoreToCount(save)
-                    }
-                }
-            }
-        }
-        Image(painter,description,modifier,contentScale=ContentScale.Fit)
-    }
+    AsyncImage(model="file:///android_asset/design/$file",contentDescription=description,
+        modifier=modifier,contentScale=ContentScale.Fit)
 }
 
 @Composable fun NoteTitle(text: String) {

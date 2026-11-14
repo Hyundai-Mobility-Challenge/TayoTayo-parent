@@ -28,6 +28,7 @@ internal data class GuardianActions(
     val pickup:(String,String,String,String?,()->Unit)->Unit={_,_,_,_,_->},
     val registerPerson:(String,String,String)->Unit={_,_,_->},
     val invite:(String)->Unit={},val refresh:()->Unit={},val logout:()->Unit={},val notificationPermission:()->Unit={},
+    val notificationSettings:()->Unit={},
     val share:(String,String)->Unit={_,_->},val revoke:(String,String)->Unit={_,_->}
 )
 
@@ -91,6 +92,7 @@ internal enum class GuardianTab(val label:String,val basic:String,val selected:S
                         NoteTitle("소식을 놓치지 않도록")
                         Text(pushStatus,Modifier.testTag("parent-push-status"),color=Majung.Secondary)
                         NoteButton("알림 권한 확인",action=actions.notificationPermission)
+                        NoteButton("기기 알림 설정 열기",secondary=true,action=actions.notificationSettings)
                         NoteButton("연결 새로고침",!busy,secondary=true,action=actions.refresh)
                         NoteRow("로그아웃","이 기기의 알림 연결도 해제합니다") { panel="logout" }
                     }
@@ -103,12 +105,18 @@ internal enum class GuardianTab(val label:String,val basic:String,val selected:S
                     tab==GuardianTab.Home -> {
                         NoteTitle("오늘의 ${direction.label}")
                         JourneyCard(tracking[childId],direction)
+                        if(tracking[childId]?.optBoolean("connectionError")==true) NoteButton("운행 소식 다시 확인",!busy,secondary=true,action=actions.refresh)
                         NoteRow("등하원 변경","오늘 ${direction.label} 이용 정보를 변경해요",Modifier.testTag("home-attendance")) { openSheet("attendance",direction,LocalDate.now()) }
                         NoteRow("오늘 누가 마중 나오나요?","보호자와 마중 정보를 확인해요",Modifier.testTag("home-pickup")) { openSheet("pickup",direction,LocalDate.now()) }
                         val trip=tracking[childId]
                         if(trip?.optBoolean("available")==true&&trip.optString("journeyStatus") !in listOf("COMPLETED","HANDED_OVER","TRIP_ENDED")) {
                             NoteButton("통학 상황 공유",!busy,secondary=true) { actions.share(childId,trip.optString("tripId")) }
-                            if((trip.optJSONArray("shares")?.length()?:0)>0) TextButton(onClick={actions.revoke(childId,trip.optString("tripId"))},enabled=!busy) {Text("공유 링크 종료",color=Majung.Text)}
+                        }
+                        if(trip != null && (trip.optJSONArray("shares")?.length() ?: 0) > 0) {
+                            if(trip.optBoolean("shareCleanupError")) Text("공유 링크 종료를 다시 시도하고 있어요. 서버 연결을 확인해 주세요.",
+                                Modifier.testTag("share-cleanup-pending"),style=MaterialTheme.typography.bodySmall,color=Majung.Error)
+                            TextButton(onClick={actions.revoke(childId,trip.optString("tripId"))},enabled=!busy,
+                                modifier=Modifier.testTag("home-revoke-share")) { Text("공유 링크 종료",color=Majung.Text) }
                         }
                         Text("운행 상황에 따라 등원·하원 화면이 자동으로 바뀌어요.",style=MaterialTheme.typography.bodySmall,color=Majung.Secondary)
                     }
@@ -118,7 +126,7 @@ internal enum class GuardianTab(val label:String,val basic:String,val selected:S
                         Text("${date.monthValue}월 ${date.dayOfMonth}일 · ${child.optString("name")}",style=MaterialTheme.typography.titleMedium)
                         if(date.isBefore(LocalDate.now())) Text("지난 일정은 확인만 할 수 있어요.",style=MaterialTheme.typography.bodySmall,color=Majung.Secondary)
                         SchoolDirection.entries.forEach { dir ->
-                            val requests=tools[childId]?.optJSONArray("requests")?.objects().orEmpty().filter { it.optString("serviceDate")==dateText&&it.optString("direction")==dir.api }
+                            val requests=tools[childId]?.optJSONArray("requests")?.objects().orEmpty().filter { it.optString("serviceDate").serviceDateText()==dateText&&it.optString("direction")==dir.api }
                             val recent=requests.firstOrNull()
                             NoteRow("${dir.label} 변경",recent?.let { requestTypeLabel(it.optString("requestType"))+" · "+requestStatusLabel(it.optString("status")) }?:"등록된 변경 요청 없음",Modifier.testTag("schedule-${dir.api}")) { openSheet("attendance",dir,date) }
                         }
