@@ -38,11 +38,12 @@ object Api {
             if (data != null) {
                 connection.doOutput = true
                 connection.setRequestProperty("Content-Type", "application/json")
-                connection.outputStream.use { it.write(data.toString().toByteArray(Charsets.UTF_8)) }
+                connection.outputStream.use { it.write(ApiJson.encodeObject(data).toByteArray(Charsets.UTF_8)) }
             }
             val status = connection.responseCode
             val stream = if (status in 200..299) connection.inputStream else connection.errorStream
-            val json = stream?.bufferedReader()?.use { JSONObject(it.readText()) } ?: JSONObject()
+            val text = stream?.bufferedReader(Charsets.UTF_8)?.use { it.readText() }.orEmpty()
+            val json = if (text.isBlank()) JSONObject() else ApiJson.decodeObject(text)
             if (status !in 200..299) throw ApiFailure(status, json.optString("error", "서버 연결 실패 ($status)"))
             return json
         } finally { connection.disconnect() }

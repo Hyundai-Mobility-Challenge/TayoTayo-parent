@@ -22,14 +22,41 @@
 
 ## 검증과 남은 확인
 
-- ETA 및 알림 ID 검증 등 11개 JVM 테스트 통과: 로컬 Kotlin 2.2.10/JUnit과 Android SDK의 실제 org.json 소스를 사용한 보조 실행. 프로젝트의 정식 Gradle 테스트를 대체하지 않는다.
-- `NotificationUiTest` 추가: 권한 오류 시 이전 운행 숨김, 대상 아이·날짜 표시, 통신 실패 시 ETA 숨김. Android 기기에서 아직 실행하지 않음.
-- `git diff --check` 통과.
-- Gradle Wrapper 8.10.2가 로컬에 없고 다운로드 호스트 DNS 연결이 실패하여 APK 빌드·Lint·기기 테스트는 미완료.
-- 인터넷 가능한 Android Studio에서 Embedded JDK/JDK 17 이상을 선택하고 Sync 후 아래 실행:
+Gradle 8.10.2 / Android Studio Embedded JDK 21 기준으로 다음 네 작업을 함께 실행해 성공했다.
+
+- `:parent:testDebugUnitTest`: 14개 통과, 실패 0개 (`JourneyDataTest` 11개, `ApiJsonTest` 3개).
+- `:parent:assembleDebug`: 디버그 APK 생성 성공.
+- `:parent:lintDebug`: 오류 0개, 경고 55개. 주로 의존성 버전·버전 카탈로그·기존 Compose 스타일 권고이며 경고를 숨기는 baseline은 추가하지 않았다.
+- `:parent:assembleDebugAndroidTest`: 기기 테스트 APK 생성 성공.
+- `git diff --check`: 통과.
+
+`NotificationUiTest`는 권한 오류 시 이전 운행 숨김, 대상 아이·날짜 표시, 통신 실패 시 ETA 숨김을 검증한다. 기기에서의 실행 결과는 별도 확인이 필요하다.
 
 ```powershell
 .\gradlew.bat :parent:testDebugUnitTest :parent:assembleDebug :parent:lintDebug :parent:assembleDebugAndroidTest
 ```
 
-실제 FCM 수신은 서버가 앱 설정과 같은 Firebase 프로젝트로 실행되어야 하며 보호자·아이·운행 데이터와 알림 권한이 필요하다. Firebase 설정 추가만으로 실제 수신이 검증된 것은 아니다.
+Windows 한글 경로로 인한 Gradle 테스트 클래스 로딩 오류는 해당 클래스패스 항목만 매 실행마다 새 임시 영문 경로에 복사하여 처리한다. 원본 소스와 프로젝트 경로는 바꾸지 않는다. Hilt 플러그인을 루트 클래스패스에 선언하여 JavaPoet 버전 충돌도 해결했다.
+
+실제 FCM 수신은 서버가 앱 설정과 같은 Firebase 프로젝트로 실행되어야 하며 보호자·아이·운행 데이터와 알림 권한이 필요하다. Firebase 설정 추가와 빌드 성공만으로 실제 수신이 검증된 것은 아니다. 서버 데이터 변경을 수반하는 통합 테스트는 실행하지 않았다.
+
+## 기술스택 적용
+
+기준 문서: 안드로이드 앱 기술스택(`4125686b1943809b8ddddb1039280016`), 개발 환경 기준 및 설정(`4065686b19438051bea2ced413a23438`).
+
+| 요구사항 | 적용 |
+| --- | --- |
+| Compose·Kotlin | 기존 Compose 화면과 Kotlin 유지 |
+| Google 권장 계층 | `GuardianRepository` 데이터 계층과 `ParentModel` 화면 계층 분리 |
+| MVI·Coroutine·Flow | `ParentIntent` 입력 → ViewModel 처리 → `ParentUiState`의 읽기 전용 StateFlow → 생명주기를 고려한 Compose 수집 |
+| Hilt | Application·Activity·ViewModel·Repository·Settings 생성자 주입 |
+| Kotlinx.serialization | `ApiJson`에서 API 요청/응답 JSON 직렬화. 기존 화면은 org.json 어댑터로 연결 |
+| DataStore | 서버 주소와 알림 요청 설정 저장. 기존 설정 마이그레이션. 계정 세션은 별도 기존 저장소 유지 |
+| Navigation Compose | 인증·홈·알림 운행 상세의 NavHost 및 로그인 상태별 이동 |
+| Coil | PNG·SVG Figma 에셋을 AsyncImage와 SvgDecoder로 로딩 |
+| FCM | 제공된 Android 설정과 토큰 등록·알림 이동 연동 |
+| Room(필요시) | 별도 오프라인 DB가 필요한 범위가 없어 추가하지 않음 |
+| WebSocket | 현재 서버에 WebSocket 엔드포인트·인증·이벤트 계약 없음. 서버를 수정하지 않는 조건으로 기존 5초 조회를 유지 |
+| 개발 환경 | minSdk 28, Gradle Wrapper 8.10.2 유지. Pleos SDK·차량 에뮬레이터 연동은 차량 앱 담당 |
+
+Windows의 한글 프로젝트 경로를 유지하기 위해 `android.overridePathCheck=true`를 적용했다.

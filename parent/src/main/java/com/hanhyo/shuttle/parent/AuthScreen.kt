@@ -1,5 +1,7 @@
 package com.hanhyo.shuttle.parent
 
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
@@ -27,6 +29,7 @@ import androidx.compose.ui.unit.sp
 
 @Composable internal fun AuthScreen(vm: ParentModel) {
     val context=androidx.compose.ui.platform.LocalContext.current
+    val ui by vm.uiState.collectAsStateWithLifecycle()
     var join by rememberSaveable { mutableStateOf(false) }
     var email by rememberSaveable { mutableStateOf("") }
     var name by rememberSaveable { mutableStateOf("") }
@@ -52,13 +55,13 @@ import androidx.compose.ui.unit.sp
                     visualTransformation=PasswordVisualTransformation(),keyboardOptions=KeyboardOptions(keyboardType=KeyboardType.Password))
             }
             if(join) NoteField(verification,{verification=it},"이메일 인증번호","받은 번호를 입력해 주세요")
-            if(vm.busy) LinearProgressIndicator(Modifier.fillMaxWidth())
-            if(vm.message.isNotBlank()) Text(vm.message,Modifier.testTag("parent-message"),style=MaterialTheme.typography.bodySmall,color=Majung.Secondary)
+            if(ui.busy) LinearProgressIndicator(Modifier.fillMaxWidth())
+            if(ui.message.isNotBlank()) Text(ui.message,Modifier.testTag("parent-message"),style=MaterialTheme.typography.bodySmall,color=Majung.Secondary)
             NoteButton(if(join) if(verification.isBlank()) "인증번호 받기" else "인증하고 가입" else "로그인",
-                enabled=!vm.busy&&email.isNotBlank()&&password.length>=8&&(!join||name.isNotBlank()),modifier=Modifier.testTag("parent-auth")) {
-                vm.authenticate(join,server,name,email.trim(),password,verification)
+                enabled=!ui.busy&&email.isNotBlank()&&password.length>=8&&(!join||name.isNotBlank()),modifier=Modifier.testTag("parent-auth")) {
+                vm.dispatch(ParentIntent.Authenticate(join,server,name,email.trim(),password,verification))
             }
-            TextButton(onClick={join=!join},modifier=Modifier.align(Alignment.CenterHorizontally),enabled=!vm.busy) {
+            TextButton(onClick={join=!join},modifier=Modifier.align(Alignment.CenterHorizontally),enabled=!ui.busy) {
                 Text(if(join) "이미 계정이 있어요 · 로그인" else "처음이라면 보호자 가입  ›",color=Majung.Text)
             }
             if(BuildConfig.DEBUG) TextButton(onClick={settings=true},modifier=Modifier.align(Alignment.CenterHorizontally)) { Text("개발 서버 설정",style=MaterialTheme.typography.bodySmall,color=Majung.Secondary) }
