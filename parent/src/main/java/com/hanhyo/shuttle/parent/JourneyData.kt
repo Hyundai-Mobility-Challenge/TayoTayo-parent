@@ -11,6 +11,11 @@ enum class SchoolDirection(val api: String,val label: String) {
 internal fun String.epochMillis(): Long = runCatching { OffsetDateTime.parse(this).toInstant().toEpochMilli() }
     .recoverCatching { LocalDateTime.parse(this).atZone(ZoneId.of("Asia/Seoul")).toInstant().toEpochMilli() }.getOrDefault(0L)
 
+/** JDBC DATE values can arrive as a UTC instant for midnight in the service timezone. */
+internal fun String.serviceDateText(): String = runCatching { LocalDate.parse(this).toString() }
+    .recoverCatching { OffsetDateTime.parse(this).atZoneSameInstant(ZoneId.of("Asia/Seoul")).toLocalDate().toString() }
+    .recoverCatching { LocalDateTime.parse(this).toLocalDate().toString() }.getOrDefault("")
+
 /** Active trips take precedence. Without schedule metadata, noon is the display-only fallback. */
 internal fun chooseDirection(morning: JSONObject?, afternoon: JSONObject?, now: LocalTime): SchoolDirection {
     fun active(row: JSONObject?) = row?.optString("tripStatus",row.optString("status")) in listOf("IN_PROGRESS","RETURNING")
@@ -34,14 +39,16 @@ internal fun normalizeJourney(row: JSONObject, direction: SchoolDirection, now: 
     val seconds=row.optInt("etaRemainingSec",-1)
     // Never refresh ETA age using an unrelated GPS update. The current API has no TTL/validity fields.
     val etaAt=row.optString("etaReceivedAt").epochMillis()
-    val eta=if(seconds>=0&&etaAt>0&&now-etaAt in 0..JOURNEY_FRESHNESS_MS&&status=="IN_PROGRESS"&&!handed&&!dropped&&!arrived) JSONObject().put("seconds",seconds).put("minutes",kotlin.math.ceil(seconds/60.0).toInt())
-        .put("receivedAt",etaAt).put("kind","SERVER_REMAINING") else JSONObject.NULL
+    // Local server and device clocks can differ by a few seconds. Clamp only that bounded
+    // future skew to receipt time; never extend stale ETA using GPS or accept distant futures.
+    val eta=if(seconds>=0&&etaAt>0&&now-etaAt in -ETA_CLOCK_SKEW_MS..JOURNEY_FRESHNESS_MS&&status=="IN_PROGRESS"&&!handed&&!dropped&&!arrived) JSONObject().put("seconds",seconds).put("minutes",kotlin.math.ceil(seconds/60.0).toInt())
+        .put("receivedAt",minOf(etaAt,now)).put("kind","SERVER_REMAINING") else JSONObject.NULL
     val stopName=row.optString("stopName").ifBlank { "등록된 ${direction.label} 지점" }
     // Do not invent passed stops or a moving vehicle when the API only supplies one destination.
     val progress=JSONArray().put(JSONObject().put("name",stopName).put("visited",dropped||handed).put("own",true))
     return JSONObject().put("tripId",tripId).put("direction",direction.api).put("childStatus",childStatus)
         .put("available",active).put("journeyStatus",when { handed->"HANDED_OVER";dropped->"COMPLETED";arrived->"ARRIVED";status=="COMPLETED"->"TRIP_ENDED";else->"IN_PROGRESS" })
-        .put("phase",status).put("serviceDate",row.optString("serviceDate")).put("serverTime",now/1000.0).put("clientReceivedAt",now)
+        .put("phase",status).put("serviceDate",row.optString("serviceDate").serviceDateText()).put("serverTime",now/1000.0).put("clientReceivedAt",now)
         .put("location",location).put("source","SERVER").put("stale",location==JSONObject.NULL||now-locationAt>30_000)
         .put("startedAt",row.optString("startedAt").epochMillis()).put("completedAt",row.optString("droppedOffAt").epochMillis())
         .put("pickup",JSONObject().put("name",stopName)).put("progress",progress)
@@ -66,6 +73,7 @@ internal fun requestStatusLabel(status: String)=when(status) { "PENDING"->"확�
 
 // Conservative app fallback until the server supplies an explicit validity period.
 internal const val JOURNEY_FRESHNESS_MS = 30_000L
+internal const val ETA_CLOCK_SKEW_MS = 5_000L
 
 internal fun journeyConnectionFailure(previous: JSONObject?): JSONObject =
     JSONObject(previous?.toString() ?: "{}").put("connectionError", true).put("stale", true)

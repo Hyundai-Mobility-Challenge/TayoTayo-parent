@@ -121,7 +121,7 @@ internal enum class GuardianTab(val label:String,val basic:String,val selected:S
                         Text("${date.monthValue}월 ${date.dayOfMonth}일 · ${child.optString("name")}",style=MaterialTheme.typography.titleMedium)
                         if(date.isBefore(LocalDate.now())) Text("지난 일정은 확인만 할 수 있어요.",style=MaterialTheme.typography.bodySmall,color=Majung.Secondary)
                         SchoolDirection.entries.forEach { dir ->
-                            val requests=tools[childId]?.optJSONArray("requests")?.objects().orEmpty().filter { it.optString("serviceDate")==dateText&&it.optString("direction")==dir.api }
+                            val requests=tools[childId]?.optJSONArray("requests")?.objects().orEmpty().filter { it.optString("serviceDate").serviceDateText()==dateText&&it.optString("direction")==dir.api }
                             val recent=requests.firstOrNull()
                             NoteRow("${dir.label} 변경",recent?.let { requestTypeLabel(it.optString("requestType"))+" · "+requestStatusLabel(it.optString("status")) }?:"등록된 변경 요청 없음",Modifier.testTag("schedule-${dir.api}")) { openSheet("attendance",dir,date) }
                         }

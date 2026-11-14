@@ -67,7 +67,7 @@ import java.time.YearMonth
     Surface(color=Majung.Pale,shape=RoundedCornerShape(12.dp)) {
         Text(if(past) "지난 날짜의 변경 요청을 확인해 주세요." else "변경 가능 여부는 기관 확인 후 반영돼요.\n긴급한 변경은 기관에 직접 알려 주세요.",Modifier.fillMaxWidth().padding(12.dp),style=MaterialTheme.typography.bodySmall)
     }
-    val requests=tools?.optJSONArray("requests")?.objects().orEmpty().filter { it.optString("serviceDate")==date.toString()&&it.optString("direction")==direction.api }
+    val requests=tools?.optJSONArray("requests")?.objects().orEmpty().filter { it.optString("serviceDate").serviceDateText()==date.toString()&&it.optString("direction")==direction.api }
     requests.forEach { Text("${requestTypeLabel(it.optString("requestType"))} · ${requestStatusLabel(it.optString("status"))}",style=MaterialTheme.typography.bodySmall) }
     if(!past) {
         listOf("NOT_RIDING" to "차량을 이용하지 않아요","ABSENT" to "오늘 결석해요","SELF_PICKUP" to "직접 데리러 가요").forEach { (value,label) ->

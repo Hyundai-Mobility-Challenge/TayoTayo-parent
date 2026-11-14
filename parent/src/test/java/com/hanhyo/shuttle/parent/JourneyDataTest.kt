@@ -42,6 +42,23 @@ class JourneyDataTest {
     @Test fun localServerDateUsesKoreanTimezone() {
         assertEquals("2026-11-12T08:20:00+09:00".epochMillis(),"2026-11-12T08:20:00".epochMillis())
     }
+    @Test fun jdbcServiceDateUsesKoreanCalendarDate() {
+        assertEquals("2026-11-14","2026-11-13T15:00:00.000Z".serviceDateText())
+        assertEquals("2026-11-14","2026-11-14".serviceDateText())
+        assertEquals("2026-11-14","2026-11-14T00:00:00".serviceDateText())
+        assertEquals("", "invalid".serviceDateText())
+        assertEquals("2026-11-14", normalizeJourney(row().put("serviceDate","2026-11-13T15:00:00.000Z"),SchoolDirection.Afternoon).getString("serviceDate"))
+    }
+    @Test fun smallClockSkewKeepsEtaButDoesNotExtendItsLifetime() {
+        val now="2026-11-12T08:20:00+09:00".epochMillis()
+        val value=row().put("etaRemainingSec",120).put("etaReceivedAt","2026-11-12T08:20:02+09:00")
+        val data=normalizeJourney(value,SchoolDirection.Afternoon,now)
+        assertEquals(now,data.getJSONObject("eta").getLong("receivedAt"))
+        value.put("etaReceivedAt","2026-11-12T08:20:06+09:00")
+        assertTrue(normalizeJourney(value,SchoolDirection.Afternoon,now).isNull("eta"))
+        value.put("etaReceivedAt","2026-11-12T08:19:29+09:00")
+        assertTrue(normalizeJourney(value,SchoolDirection.Afternoon,now).isNull("eta"))
+    }
     @Test fun freshGpsCannotMakeMissingOrExpiredEtaFresh() {
         val now="2026-11-12T08:20:00+09:00".epochMillis()
         val base=row().put("latitude",37.5).put("longitude",127.0)
