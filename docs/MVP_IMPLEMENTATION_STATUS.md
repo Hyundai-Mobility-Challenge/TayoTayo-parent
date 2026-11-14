@@ -30,7 +30,7 @@ Gradle 8.10.2 / Android Studio Embedded JDK 21 기준으로 다음 네 작업을
 - `:parent:assembleDebugAndroidTest`: 기기 테스트 APK 생성 성공.
 - `git diff --check`: 통과.
 
-`NotificationUiTest`는 권한 오류 시 이전 운행 숨김, 대상 아이·날짜 표시, 통신 실패 시 ETA 숨김을 검증한다. 기기에서의 실행 결과는 별도 확인이 필요하다.
+`NotificationUiTest`는 권한 오류 시 이전 운행 숨김, 대상 아이·날짜 표시, 통신 실패 시 ETA 숨김을 검증한다. Android 17 Medium Phone 에뮬레이터에서 3개 모두 통과했다. Espresso 3.7.0 / AndroidX Test JUnit 1.3.0으로 테스트 의존성을 맞춰 최신 Android의 InputManager 호환성 오류를 해결했다.
 
 ```powershell
 .\gradlew.bat :parent:testDebugUnitTest :parent:assembleDebug :parent:lintDebug :parent:assembleDebugAndroidTest
