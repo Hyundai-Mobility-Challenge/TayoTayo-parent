@@ -7,8 +7,6 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
-import com.google.firebase.FirebaseApp
-import com.google.firebase.messaging.FirebaseMessaging
 import com.hanhyo.shuttle.net.Api
 import com.hanhyo.shuttle.net.ApiFailure
 import kotlinx.coroutines.Dispatchers
@@ -33,6 +31,46 @@ class ParentModel(app: Application) : AndroidViewModel(app) {
     val afternoonTracking = mutableStateMapOf<String, JSONObject>()
     val directions = mutableStateMapOf<String, SchoolDirection>()
     val childTools = mutableStateMapOf<String, JSONObject>()
+    var notificationTarget by mutableStateOf<NotificationTarget?>(null); private set
+    var notificationData by mutableStateOf<JSONObject?>(null); private set
+    var notificationChildName by mutableStateOf(""); private set
+    var notificationError by mutableStateOf(""); private set
+
+    fun openNotification(target: NotificationTarget, refresh: Boolean = false) = work {
+        notificationTarget = target
+        if (!refresh) { notificationData = null; notificationChildName = "" }
+        notificationError = ""
+        try {
+            // Recheck membership on the server, including after login or a revoked invitation.
+            val children = request("/api/v1/me/children").optJSONArray("items")?.objects().orEmpty()
+            val child = children.firstOrNull { it.optString("id") == target.childId }
+            if (child == null) {
+                notificationData = null; notificationChildName = ""
+                notificationError = "아이 연결이 해제되었거나 이 계정으로 조회할 수 없는 알림이에요."
+                return@work
+            }
+            val detail = request("/api/v1/guardian/trips/${target.tripId}/children/${target.childId}")
+            val direction = if (detail.optString("direction") == "PICK_UP") SchoolDirection.Morning else SchoolDirection.Afternoon
+            val today = request("/api/v1/guardian/children/${target.childId}/today?direction=${direction.api}")
+            // Never display another trip's ETA on a historical notification.
+            val row = if (today.optString("tripId") == target.tripId) today else detail
+            notificationData = normalizeJourney(row, direction)
+            notificationChildName = child.optString("name")
+        } catch (e: Exception) {
+            notificationData = null
+            notificationError = when ((e as? ApiFailure)?.status) {
+                401 -> "로그인 후 알림을 다시 확인해 주세요."
+                403 -> "현재 계정으로 이 아이의 운행을 조회할 수 없어요."
+                404 -> "해당 운행 기록을 찾을 수 없어요."
+                else -> "서버에 연결하지 못했어요. 다시 확인해 주세요."
+            }
+        }
+    }
+
+    fun closeNotification() {
+        notificationTarget = null; notificationData = null
+        notificationChildName = ""; notificationError = ""
+    }
 
     private fun request(path: String, data: JSONObject? = null, method: String? = null): JSONObject {
         val token = prefs.getString("token", "") ?: ""
@@ -92,7 +130,13 @@ class ParentModel(app: Application) : AndroidViewModel(app) {
         loadTracking()
     }
 
-    fun refresh() { if (loggedIn) work { loadChildren(); loadTracking() } }
+    fun refresh() {
+        if (loggedIn) work {
+            try { loadChildren(); loadTracking() }
+            catch (e: Exception) { markTrackingFailure(); throw e }
+            Push.register(getApplication())
+        }
+    }
 
     fun loadChildTools(childId: String, serviceDate: String = LocalDate.now().toString()) = work { loadChildToolsNow(childId, serviceDate) }
 
@@ -142,6 +186,17 @@ class ParentModel(app: Application) : AndroidViewModel(app) {
     private fun loadChildren() {
         val result = request("/api/v1/me/children")
         val items = result.optJSONArray("items") ?: JSONArray()
+        val authorizedIds = items.objects().map { it.optString("id") }.toSet()
+        // Remove cached data as soon as the server no longer lists a connection.
+        (tracking.keys.toSet() - authorizedIds).forEach { id ->
+            tracking.remove(id); morningTracking.remove(id); afternoonTracking.remove(id)
+            childTools.remove(id); directions.remove(id)
+        }
+        state = JSONObject(state.toString()).put("children", JSONArray().apply {
+            state.optJSONArray("children")?.objects()?.filter { it.optString("id") in authorizedIds }?.forEach { put(it) }
+        }).put("events", JSONArray().apply {
+            state.optJSONArray("events")?.objects()?.filter { it.optString("childId") in authorizedIds }?.forEach { put(it) }
+        })
         val children = JSONArray()
         val events = mutableListOf<JSONObject>()
         val seenChildIds = mutableSetOf<String>()
@@ -166,6 +221,7 @@ class ParentModel(app: Application) : AndroidViewModel(app) {
 
     fun refreshTracking() {
         if (!loggedIn || busy) return
+        notificationTarget?.let { openNotification(it, refresh = true); return }
         work { loadTracking() }
     }
 
@@ -173,6 +229,7 @@ class ParentModel(app: Application) : AndroidViewModel(app) {
         val children = state.optJSONArray("children") ?: return
         for (i in 0 until children.length()) {
             val childId = children.getJSONObject(i).getString("id")
+            try {
             val morning = request("/api/v1/guardian/children/$childId/today?direction=PICK_UP")
             val afternoon = request("/api/v1/guardian/children/$childId/today?direction=DROP_OFF")
             val direction = chooseDirection(morning, afternoon, java.time.LocalTime.now(java.time.ZoneId.of("Asia/Seoul")))
@@ -182,7 +239,28 @@ class ParentModel(app: Application) : AndroidViewModel(app) {
             tracking[childId] = if (direction == SchoolDirection.Morning) morningTracking[childId]!! else afternoonTracking[childId]!!
             val shareId=prefs.getString("share:$childId:${tracking[childId]!!.optString("tripId")}",null)
             if(shareId!=null) tracking[childId]!!.put("shares",JSONArray().put(JSONObject().put("id",shareId)))
+            } catch (e: Exception) {
+                if (!loggedIn) return
+                if (e is ApiFailure && e.status in listOf(403,404)) {
+                    tracking.remove(childId); morningTracking.remove(childId); afternoonTracking.remove(childId)
+                    state = JSONObject(state.toString()).put("children", JSONArray().apply {
+                        children.objects().filter { it.optString("id") != childId }.forEach { put(it) }
+                    }).put("events", JSONArray().apply {
+                        state.optJSONArray("events")?.objects()?.filter { it.optString("childId") != childId }?.forEach { put(it) }
+                    })
+                    childTools.remove(childId); directions.remove(childId)
+                    message = "아이 연결 권한이 변경되었어요. 최신 연결을 확인해 주세요."
+                } else {
+                    tracking[childId] = journeyConnectionFailure(tracking[childId])
+                    morningTracking[childId] = journeyConnectionFailure(morningTracking[childId])
+                    afternoonTracking[childId] = journeyConnectionFailure(afternoonTracking[childId])
+                }
+            }
         }
+    }
+
+    private fun markTrackingFailure() {
+        tracking.keys.toList().forEach { id -> tracking[id] = journeyConnectionFailure(tracking[id]) }
     }
 
 
@@ -200,7 +278,7 @@ class ParentModel(app: Application) : AndroidViewModel(app) {
         tracking[childId]?.let { tracking[childId] = JSONObject(it.toString()).put("shares", JSONArray()) }
         message = "공유 링크를 종료했습니다."
     }
-    fun readPushStatus() { pushStatus = prefs.getString("pushStatus", "알림 연결을 확인해 주세요.")!! }
+    fun readPushStatus() { pushStatus = Push.status(getApplication()) }
     fun requestInitialNotification(action: () -> Unit) {
         if (android.os.Build.VERSION.SDK_INT >= 33 && !prefs.getBoolean("askedNotification", false)) {
             prefs.edit().putBoolean("askedNotification", true).apply(); action()
@@ -208,12 +286,14 @@ class ParentModel(app: Application) : AndroidViewModel(app) {
     }
     fun logout() = work {
         Push.logout(getApplication())
+        closeNotification()
         loggedIn = false; tracking.clear(); childTools.clear(); state = JSONObject().put("children", JSONArray()).put("events", JSONArray())
         message = "로그아웃했습니다."
         morningTracking.clear(); afternoonTracking.clear(); directions.clear()
     }
 
     private fun clearSession() {
+        closeNotification()
         prefs.edit().remove("token").remove("refreshToken").apply()
         loggedIn = false
         tracking.clear()

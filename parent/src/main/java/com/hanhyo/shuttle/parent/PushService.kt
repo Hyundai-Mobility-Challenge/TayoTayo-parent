@@ -8,6 +8,9 @@ import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.os.Build
+import android.net.Uri
+import android.provider.Settings
+import androidx.core.app.NotificationManagerCompat
 import androidx.core.app.NotificationCompat
 import androidx.core.content.ContextCompat
 import com.google.firebase.FirebaseApp
@@ -53,7 +56,30 @@ object Push {
             }
         }
     }
-    private fun permission(context: Context) = if (Build.VERSION.SDK_INT < 33 || ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) == PackageManager.PERMISSION_GRANTED) "GRANTED" else "DENIED"
+    fun permissionGranted(context: Context) = Build.VERSION.SDK_INT < 33 || ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) == PackageManager.PERMISSION_GRANTED
+    fun appNotificationsEnabled(context: Context) = NotificationManagerCompat.from(context).areNotificationsEnabled()
+    fun channelEnabled(context: Context) = context.getSystemService(NotificationManager::class.java)
+        .getNotificationChannel("dropoff")?.importance != NotificationManager.IMPORTANCE_NONE
+    private fun permission(context: Context) = if (permissionGranted(context) && appNotificationsEnabled(context) && channelEnabled(context)) "GRANTED" else "DENIED"
+    fun status(context: Context): String {
+        val registration = prefs(context).getString("pushStatus", "알림 연결을 확인해 주세요.").orEmpty()
+        val device = when {
+            !permissionGranted(context) -> "OS 알림 권한이 꺼져 있어요."
+            !appNotificationsEnabled(context) -> "앱 알림이 차단되어 있어요."
+            !channelEnabled(context) -> "등하원 운행 알림 채널이 차단되어 있어요."
+            else -> "기기 알림이 허용되어 있어요."
+        }
+        return "$device\n$registration"
+    }
+    fun openSettings(context: Context) {
+        val intent = Intent(if (appNotificationsEnabled(context)) Settings.ACTION_CHANNEL_NOTIFICATION_SETTINGS else Settings.ACTION_APP_NOTIFICATION_SETTINGS)
+            .putExtra(Settings.EXTRA_APP_PACKAGE, context.packageName).putExtra(Settings.EXTRA_CHANNEL_ID, "dropoff")
+            .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        runCatching { context.startActivity(intent) }.onFailure {
+            context.startActivity(Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.parse("package:${context.packageName}"))
+                .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+        }
+    }
     fun logout(context: Context) = synchronized(lock) {
         val prefs = prefs(context)
         val base = prefs.getString("base", "")!!
@@ -74,6 +100,8 @@ class PushService : FirebaseMessagingService() {
         if (Build.VERSION.SDK_INT >= 33 && ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) return
         val id = message.data["notificationId"] ?: message.data["eventId"] ?: message.messageId ?: return
         val target=Intent(this, MainActivity::class.java).putExtra("openInbox",true).putExtra("notificationId",id)
+            .putExtra("childId",message.data["childId"]).putExtra("tripId",message.data["tripId"])
+            .setData(Uri.parse("tayotayo://notification/${Uri.encode(id)}"))
             .addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP)
         val pending = PendingIntent.getActivity(this, id.hashCode(), target, PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
         val title=message.notification?.title ?: message.data["title"] ?: "타요타요"

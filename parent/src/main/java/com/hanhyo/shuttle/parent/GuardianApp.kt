@@ -28,6 +28,7 @@ internal data class GuardianActions(
     val pickup:(String,String,String,String?,()->Unit)->Unit={_,_,_,_,_->},
     val registerPerson:(String,String,String)->Unit={_,_,_->},
     val invite:(String)->Unit={},val refresh:()->Unit={},val logout:()->Unit={},val notificationPermission:()->Unit={},
+    val notificationSettings:()->Unit={},
     val share:(String,String)->Unit={_,_->},val revoke:(String,String)->Unit={_,_->}
 )
 
@@ -91,6 +92,7 @@ internal enum class GuardianTab(val label:String,val basic:String,val selected:S
                         NoteTitle("소식을 놓치지 않도록")
                         Text(pushStatus,Modifier.testTag("parent-push-status"),color=Majung.Secondary)
                         NoteButton("알림 권한 확인",action=actions.notificationPermission)
+                        NoteButton("기기 알림 설정 열기",secondary=true,action=actions.notificationSettings)
                         NoteButton("연결 새로고침",!busy,secondary=true,action=actions.refresh)
                         NoteRow("로그아웃","이 기기의 알림 연결도 해제합니다") { panel="logout" }
                     }
@@ -103,6 +105,7 @@ internal enum class GuardianTab(val label:String,val basic:String,val selected:S
                     tab==GuardianTab.Home -> {
                         NoteTitle("오늘의 ${direction.label}")
                         JourneyCard(tracking[childId],direction)
+                        if(tracking[childId]?.optBoolean("connectionError")==true) NoteButton("운행 소식 다시 확인",!busy,secondary=true,action=actions.refresh)
                         NoteRow("등하원 변경","오늘 ${direction.label} 이용 정보를 변경해요",Modifier.testTag("home-attendance")) { openSheet("attendance",direction,LocalDate.now()) }
                         NoteRow("오늘 누가 마중 나오나요?","보호자와 마중 정보를 확인해요",Modifier.testTag("home-pickup")) { openSheet("pickup",direction,LocalDate.now()) }
                         val trip=tracking[childId]

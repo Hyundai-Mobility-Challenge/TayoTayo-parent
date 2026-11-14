@@ -42,4 +42,39 @@ class JourneyDataTest {
     @Test fun localServerDateUsesKoreanTimezone() {
         assertEquals("2026-11-12T08:20:00+09:00".epochMillis(),"2026-11-12T08:20:00".epochMillis())
     }
+    @Test fun freshGpsCannotMakeMissingOrExpiredEtaFresh() {
+        val now="2026-11-12T08:20:00+09:00".epochMillis()
+        val base=row().put("latitude",37.5).put("longitude",127.0)
+            .put("locationUpdatedAt","2026-11-12T08:20:00+09:00").put("etaRemainingSec",120)
+        assertTrue(normalizeJourney(base,SchoolDirection.Morning,now).isNull("eta"))
+        base.put("etaReceivedAt","2026-11-12T08:19:00+09:00")
+        val result=normalizeJourney(base,SchoolDirection.Morning,now)
+        assertTrue(result.isNull("eta"))
+        assertTrue(result.getString("etaReason").contains("지연"))
+    }
+    @Test fun futureEtaIsRejectedAndCompletionIsNotArrival() {
+        val now="2026-11-12T08:20:00+09:00".epochMillis()
+        val data=normalizeJourney(row().put("etaRemainingSec",0).put("etaReceivedAt","2026-11-12T08:21:00+09:00")
+            .put("stopStatus","COMPLETED"),SchoolDirection.Afternoon,now)
+        assertTrue(data.isNull("eta"))
+        assertEquals("IN_PROGRESS",data.getString("journeyStatus"))
+    }
+    @Test fun connectionFailureRemovesEtaWithoutInventingCompletion() {
+        val now="2026-11-12T08:20:00+09:00".epochMillis()
+        val data=normalizeJourney(row().put("etaRemainingSec",30).put("etaReceivedAt","2026-11-12T08:20:00+09:00"),SchoolDirection.Afternoon,now)
+        val failed=journeyConnectionFailure(data)
+        assertTrue(failed.isNull("eta"))
+        assertTrue(failed.getJSONObject("timeline").isNull("ownEta"))
+        assertTrue(failed.getBoolean("connectionError"))
+        assertEquals("IN_PROGRESS",failed.getString("journeyStatus"))
+        assertFalse(data.isNull("eta")) // Keep immutable previous snapshots.
+    }
+    @Test fun notificationIdsMustBePositiveServerIds() {
+        assertEquals(NotificationTarget("12","34"),NotificationTarget.from("12","34"))
+        assertNull(NotificationTarget.from(null,"34"))
+        assertNull(NotificationTarget.from("0","34"))
+        assertNull(NotificationTarget.from("12","../34"))
+        assertNull(NotificationTarget.from("-1","34"))
+        assertNull(NotificationTarget.from("12","999999999999999999999"))
+    }
 }

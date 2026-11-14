@@ -27,13 +27,14 @@ import org.json.JSONObject
     val arrived=state=="ARRIVED"
     val ended=state=="TRIP_ENDED"
     val active=data?.optBoolean("available")==true
-    val eta=data?.optJSONObject("eta")?.takeIf { now-it.optLong("receivedAt") in 0..30_000 && !complete&&!arrived&&!ended }
+    val connectionError=data?.optBoolean("connectionError")==true
+    val eta=data?.optJSONObject("eta")?.takeIf { now-it.optLong("receivedAt") in 0..JOURNEY_FRESHNESS_MS && !connectionError && !complete&&!arrived&&!ended }
     val stale=data?.optBoolean("stale")==true||now-(data?.optLong("clientReceivedAt")?:0)>30_000
     if(data==null||!active) {
-        EmptyNote(if(data==null) "운행 소식을 확인해요" else "오늘의 출발을 기다려요",data?.optString("reason")?:"연결되면 자동으로 갱신됩니다.")
+        EmptyNote(if(connectionError) "연결을 확인해 주세요" else if(data==null) "운행 소식을 확인해요" else "오늘의 출발을 기다려요",data?.optString("reason")?:"연결되면 자동으로 갱신됩니다.")
         return
     }
-    val title=when {state=="HANDED_OVER"->"보호자 인계 완료";complete->"하차했어요";ended->"운행이 종료됐어요";arrived->"정류장에 도착했어요";eta!=null->"약 ${eta.optInt("minutes")}분 후 도착";else->"차량이 이동 중이에요"}
+    val title=when {state=="HANDED_OVER"->"보호자 인계 완료";complete->"하차했어요";ended->"운행이 종료됐어요";arrived->"정류장에 도착했어요";connectionError->"서버에 연결하지 못했어요";eta!=null->"약 ${eta.optInt("minutes")}분 후 도착";else->"예상 시간을 확인하고 있어요"}
     Surface(shape=RoundedCornerShape(20.dp),border=BorderStroke(1.dp,Majung.Border),color=Majung.Card,modifier=Modifier.testTag("home-journey")) {
         Column(Modifier.fillMaxWidth()) {
             Row(Modifier.fillMaxWidth().background(Majung.Pale).padding(16.dp),verticalAlignment=Alignment.CenterVertically) {
@@ -47,6 +48,11 @@ import org.json.JSONObject
             Column(Modifier.padding(16.dp),verticalArrangement=Arrangement.spacedBy(10.dp)) {
                 Text("운행 진행",style=MaterialTheme.typography.titleSmall)
                 JourneyStops(data,stale||complete||arrived||ended)
+                if(!data.optBoolean("routeAvailable",true)) Text("현재는 우리 아이 정류장만 확인할 수 있어요.",style=MaterialTheme.typography.bodySmall,color=Majung.Secondary)
+                if(!complete&&!arrived&&!ended) {
+                    val etaReason=if(connectionError) "휴대폰에서 서버에 연결하지 못했어요. 다시 확인해 주세요." else if(eta==null) data.optString("etaReason").ifBlank { "예상 시간 갱신이 지연되고 있어요." } else ""
+                    if(etaReason.isNotBlank()) Text(etaReason,Modifier.testTag("journey-eta-reason"),style=MaterialTheme.typography.bodySmall,color=Majung.Secondary)
+                }
                 Text(when {state=="HANDED_OVER"->"선생님이 보호자 인계를 기록했어요.";complete->"하차 기록이에요. 보호자 인계 여부는 별도로 확인해 주세요.";ended->"차량 운행은 끝났지만 우리 아이의 하차 기록은 아직 확인되지 않았어요.";arrived->"주변을 확인하고 선생님 안내에 따라 인계받아 주세요.";stale->"위치 갱신 대기 · 마지막으로 확인한 정보예요.";else->"예상 도착 시간은 교통 상황에 따라 달라질 수 있어요."},style=MaterialTheme.typography.bodySmall,color=Majung.Secondary)
             }
         }
