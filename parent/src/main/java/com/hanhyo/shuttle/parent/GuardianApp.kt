@@ -111,7 +111,12 @@ internal enum class GuardianTab(val label:String,val basic:String,val selected:S
                         val trip=tracking[childId]
                         if(trip?.optBoolean("available")==true&&trip.optString("journeyStatus") !in listOf("COMPLETED","HANDED_OVER","TRIP_ENDED")) {
                             NoteButton("통학 상황 공유",!busy,secondary=true) { actions.share(childId,trip.optString("tripId")) }
-                            if((trip.optJSONArray("shares")?.length()?:0)>0) TextButton(onClick={actions.revoke(childId,trip.optString("tripId"))},enabled=!busy) {Text("공유 링크 종료",color=Majung.Text)}
+                        }
+                        if(trip != null && (trip.optJSONArray("shares")?.length() ?: 0) > 0) {
+                            if(trip.optBoolean("shareCleanupError")) Text("공유 링크 종료를 다시 시도하고 있어요. 서버 연결을 확인해 주세요.",
+                                Modifier.testTag("share-cleanup-pending"),style=MaterialTheme.typography.bodySmall,color=Majung.Error)
+                            TextButton(onClick={actions.revoke(childId,trip.optString("tripId"))},enabled=!busy,
+                                modifier=Modifier.testTag("home-revoke-share")) { Text("공유 링크 종료",color=Majung.Text) }
                         }
                         Text("운행 상황에 따라 등원·하원 화면이 자동으로 바뀌어요.",style=MaterialTheme.typography.bodySmall,color=Majung.Secondary)
                     }

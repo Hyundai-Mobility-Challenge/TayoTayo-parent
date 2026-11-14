@@ -23,12 +23,13 @@ import org.json.JSONObject
     var now by remember { mutableLongStateOf(System.currentTimeMillis()) }
     LaunchedEffect(Unit) { while(true) {now=System.currentTimeMillis();delay(1000)} }
     val state=data?.optString("journeyStatus")
-    val complete=state in listOf("COMPLETED","HANDED_OVER")
+    val complete=state=="COMPLETED"
+    val handed=state=="HANDED_OVER"
     val arrived=state=="ARRIVED"
     val ended=state=="TRIP_ENDED"
     val active=data?.optBoolean("available")==true
     val connectionError=data?.optBoolean("connectionError")==true
-    val eta=data?.optJSONObject("eta")?.takeIf { now-it.optLong("receivedAt") in 0..JOURNEY_FRESHNESS_MS && !connectionError && !complete&&!arrived&&!ended }
+    val eta=data?.optJSONObject("eta")?.takeIf { now-it.optLong("receivedAt") in 0..JOURNEY_FRESHNESS_MS && !connectionError && !complete&&!handed&&!arrived&&!ended }
     val stale=data?.optBoolean("stale")==true||now-(data?.optLong("clientReceivedAt")?:0)>30_000
     if(data==null||!active) {
         EmptyNote(if(connectionError) "연결을 확인해 주세요" else if(data==null) "운행 소식을 확인해요" else "오늘의 출발을 기다려요",data?.optString("reason")?:"연결되면 자동으로 갱신됩니다.")
@@ -39,7 +40,7 @@ import org.json.JSONObject
         Column(Modifier.fillMaxWidth()) {
             Row(Modifier.fillMaxWidth().background(Majung.Pale).padding(16.dp),verticalAlignment=Alignment.CenterVertically) {
                 Column(Modifier.weight(1f),verticalArrangement=Arrangement.spacedBy(5.dp)) {
-                    Text(when {complete->"오늘의 ${direction.label} 기록";arrived->"도착 · 인계 대기";ended->"기록 확인 필요";else->"${direction.label} 운행 중"},style=MaterialTheme.typography.bodySmall)
+                    Text(when {handed->"인계 기록 · 하차 대기";complete->"오늘의 ${direction.label} 기록";arrived->"도착 · 인계 대기";ended->"기록 확인 필요";else->"${direction.label} 운행 중"},style=MaterialTheme.typography.bodySmall)
                     Text(title,fontSize=23.sp,lineHeight=31.sp,fontWeight=FontWeight.Bold)
                     Text(data.optJSONObject("pickup")?.optString("name").orEmpty(),style=MaterialTheme.typography.bodySmall,color=Majung.Secondary)
                 }
@@ -47,13 +48,13 @@ import org.json.JSONObject
             }
             Column(Modifier.padding(16.dp),verticalArrangement=Arrangement.spacedBy(10.dp)) {
                 Text("운행 진행",style=MaterialTheme.typography.titleSmall)
-                JourneyStops(data,stale||complete||arrived||ended)
+                JourneyStops(data,stale||complete||handed||arrived||ended)
                 if(!data.optBoolean("routeAvailable",true)) Text("현재는 우리 아이 정류장만 확인할 수 있어요.",style=MaterialTheme.typography.bodySmall,color=Majung.Secondary)
-                if(!complete&&!arrived&&!ended) {
+                if(!complete&&!handed&&!arrived&&!ended) {
                     val etaReason=if(connectionError) "휴대폰에서 서버에 연결하지 못했어요. 다시 확인해 주세요." else if(eta==null) data.optString("etaReason").ifBlank { "예상 시간 갱신이 지연되고 있어요." } else ""
                     if(etaReason.isNotBlank()) Text(etaReason,Modifier.testTag("journey-eta-reason"),style=MaterialTheme.typography.bodySmall,color=Majung.Secondary)
                 }
-                Text(when {state=="HANDED_OVER"->"선생님이 보호자 인계를 기록했어요.";complete->"하차 기록이에요. 보호자 인계 여부는 별도로 확인해 주세요.";ended->"차량 운행은 끝났지만 우리 아이의 하차 기록은 아직 확인되지 않았어요.";arrived->"주변을 확인하고 선생님 안내에 따라 인계받아 주세요.";stale->"위치 갱신 대기 · 마지막으로 확인한 정보예요.";else->"예상 도착 시간은 교통 상황에 따라 달라질 수 있어요."},style=MaterialTheme.typography.bodySmall,color=Majung.Secondary)
+                Text(when {state=="HANDED_OVER"->"선생님이 보호자 인계를 기록했어요. 하차 기록을 기다리고 있어요.";complete->"하차 기록이에요. 보호자 인계 여부는 별도로 확인해 주세요.";ended->"차량 운행은 끝났지만 우리 아이의 하차 기록은 아직 확인되지 않았어요.";arrived->"주변을 확인하고 선생님 안내에 따라 인계받아 주세요.";stale->"위치 갱신 대기 · 마지막으로 확인한 정보예요.";else->"예상 도착 시간은 교통 상황에 따라 달라질 수 있어요."},style=MaterialTheme.typography.bodySmall,color=Majung.Secondary)
             }
         }
     }

@@ -35,7 +35,7 @@ internal fun normalizeJourney(row: JSONObject, direction: SchoolDirection, now: 
     val active=tripId.isNotBlank() && status in listOf("IN_PROGRESS","RETURNING","COMPLETED")
     val locationAt=row.optString("locationUpdatedAt").epochMillis()
     val lat=row.optDouble("latitude",Double.NaN); val lon=row.optDouble("longitude",Double.NaN)
-    val location=if(lat.isFinite()&&lon.isFinite()&&locationAt>0) JSONObject().put("latitude",lat).put("longitude",lon).put("receivedAt",locationAt) else JSONObject.NULL
+    val location=if(!dropped&&status !in listOf("COMPLETED","CANCELLED")&&lat.isFinite()&&lon.isFinite()&&locationAt>0) JSONObject().put("latitude",lat).put("longitude",lon).put("receivedAt",locationAt) else JSONObject.NULL
     val seconds=row.optInt("etaRemainingSec",-1)
     // Never refresh ETA age using an unrelated GPS update. The current API has no TTL/validity fields.
     val etaAt=row.optString("etaReceivedAt").epochMillis()
@@ -45,7 +45,7 @@ internal fun normalizeJourney(row: JSONObject, direction: SchoolDirection, now: 
         .put("receivedAt",minOf(etaAt,now)).put("kind","SERVER_REMAINING") else JSONObject.NULL
     val stopName=row.optString("stopName").ifBlank { "등록된 ${direction.label} 지점" }
     // Do not invent passed stops or a moving vehicle when the API only supplies one destination.
-    val progress=JSONArray().put(JSONObject().put("name",stopName).put("visited",dropped||handed).put("own",true))
+    val progress=JSONArray().put(JSONObject().put("name",stopName).put("visited",dropped).put("own",true))
     return JSONObject().put("tripId",tripId).put("direction",direction.api).put("childStatus",childStatus)
         .put("available",active).put("journeyStatus",when { handed->"HANDED_OVER";dropped->"COMPLETED";arrived->"ARRIVED";status=="COMPLETED"->"TRIP_ENDED";else->"IN_PROGRESS" })
         .put("phase",status).put("serviceDate",row.optString("serviceDate").serviceDateText()).put("serverTime",now/1000.0).put("clientReceivedAt",now)

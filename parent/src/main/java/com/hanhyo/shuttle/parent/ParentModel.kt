@@ -27,6 +27,10 @@ import kotlinx.coroutines.flow.update
 class ParentModel @Inject constructor(app: Application, private val repository: GuardianRepository,
     private val settings: GuardianSettings) : AndroidViewModel(app) {
     private val prefs = repository.session
+    private val shares = JourneyShares(
+        read = { prefs.getString(it, null) },
+        write = { key, value -> check(prefs.edit().putString(key, value).commit()) },
+        request = { path, body, method -> request(path, body, method) })
     private val workMutex = Mutex()
     private val _uiState = MutableStateFlow(ParentUiState(
         base = prefs.getString("base", "http://192.168.33.128:8080")!!,
@@ -134,7 +138,7 @@ class ParentModel @Inject constructor(app: Application, private val repository: 
             val today = request("/api/v1/guardian/children/${target.childId}/today?direction=${direction.api}")
             // Never display another trip's ETA on a historical notification.
             val row = if (today.optString("tripId") == target.tripId) today else detail
-            notificationData = normalizeJourney(row, direction)
+            notificationData = shares.reconcile(target.childId, normalizeJourney(row, direction))
             notificationChildName = child.optString("name")
         } catch (e: Exception) {
             notificationData = null
@@ -307,12 +311,10 @@ class ParentModel @Inject constructor(app: Application, private val repository: 
             val morning = request("/api/v1/guardian/children/$childId/today?direction=PICK_UP")
             val afternoon = request("/api/v1/guardian/children/$childId/today?direction=DROP_OFF")
             val direction = chooseDirection(morning, afternoon, java.time.LocalTime.now(java.time.ZoneId.of("Asia/Seoul")))
-            putMorningTracking(childId, normalizeJourney(morning, SchoolDirection.Morning))
-            putAfternoonTracking(childId, normalizeJourney(afternoon, SchoolDirection.Afternoon))
+            putMorningTracking(childId, shares.reconcile(childId, normalizeJourney(morning, SchoolDirection.Morning)))
+            putAfternoonTracking(childId, shares.reconcile(childId, normalizeJourney(afternoon, SchoolDirection.Afternoon)))
             putDirections(childId, direction)
             putTracking(childId, if (direction == SchoolDirection.Morning) morningTracking[childId]!! else afternoonTracking[childId]!!)
-            val shareId=prefs.getString("share:$childId:${tracking[childId]!!.optString("tripId")}",null)
-            if(shareId!=null) putTracking(childId, JSONObject(tracking[childId]!!.toString()).put("shares",JSONArray().put(JSONObject().put("id",shareId))))
             } catch (e: Exception) {
                 if (!loggedIn) return
                 if (e is ApiFailure && e.status in listOf(403,404)) {
@@ -338,17 +340,15 @@ class ParentModel @Inject constructor(app: Application, private val repository: 
 
 
     fun shareTracking(childId: String, tripId: String, onLink: (String) -> Unit) = work {
-        val result = request("/api/v1/guardian/children/$childId/trips/$tripId/share-links", JSONObject())
-        prefs.edit().putString("share:$childId:$tripId", result.optString("id")).apply()
-        val path = result.optString("url")
-        tracking[childId]?.let { putTracking(childId, JSONObject(it.toString()).put("shares", JSONArray().put(JSONObject().put("id", result.optString("id"))))) }
+        val latest = request("/api/v1/guardian/trips/$tripId/children/$childId")
+        val result = shares.create(childId, tripId, latest)
+        val path = result.getString("url")
+        tracking[childId]?.let { putTracking(childId, shares.reconcile(childId, it)) }
         withContext(Dispatchers.Main) { onLink(if (path.startsWith("http")) path else base + path) }
     }
     fun revokeTracking(childId: String, tripId: String) = work {
-        val linkId = prefs.getString("share:$childId:$tripId", null) ?: return@work
-        request("/api/v1/guardian/share-links/$linkId/revoke", method = "POST")
-        prefs.edit().remove("share:$childId:$tripId").apply()
-        tracking[childId]?.let { putTracking(childId, JSONObject(it.toString()).put("shares", JSONArray())) }
+        shares.revoke(childId, tripId)
+        tracking[childId]?.let { putTracking(childId, shares.reconcile(childId, it)) }
         message = "공유 링크를 종료했습니다."
     }
     fun readPushStatus() { pushStatus = Push.status(getApplication()) }
