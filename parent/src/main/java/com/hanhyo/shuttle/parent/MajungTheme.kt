@@ -41,6 +41,13 @@ object Majung {
     MaterialTheme(colorScheme=lightColorScheme(primary=Majung.Yellow, onPrimary=Majung.Text,
         secondary=Majung.Text, background=Majung.App, surface=Majung.Card, onSurface=Majung.Text,
         onBackground=Majung.Text, outline=Majung.Border, error=Majung.Error, surfaceTint=Majung.Card), typography=Typography(
+        displayLarge=Typography().displayLarge.merge(base),
+        displayMedium=Typography().displayMedium.merge(base),
+        displaySmall=Typography().displaySmall.merge(base),
+        headlineLarge=Typography().headlineLarge.merge(base),
+        headlineMedium=Typography().headlineMedium.merge(base),
+        headlineSmall=Typography().headlineSmall.merge(base),
+        labelSmall=Typography().labelSmall.merge(base),
         bodyLarge=base.copy(fontSize=16.sp,lineHeight=24.sp), bodyMedium=base.copy(fontSize=14.sp,lineHeight=20.sp),
         bodySmall=base.copy(fontSize=12.sp,lineHeight=18.sp), titleLarge=base.copy(fontSize=24.sp,lineHeight=35.sp,fontWeight=FontWeight.Bold),
         titleMedium=base.copy(fontSize=18.sp,lineHeight=26.sp,fontWeight=FontWeight.Bold),
