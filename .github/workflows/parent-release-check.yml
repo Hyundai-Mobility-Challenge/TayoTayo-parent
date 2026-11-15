@@ -19,7 +19,6 @@ jobs:
         with:
           distribution: temurin
           java-version: '17'
-      - uses: android-actions/setup-android@v3
       - name: Test and assemble release
         run: bash gradlew :parent:testReleaseUnitTest :parent:assembleRelease -PtayoServerUrl=https://api-demo-e677ea0e.up.railway.app
       - uses: actions/upload-artifact@v4
