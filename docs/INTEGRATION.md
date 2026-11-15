@@ -4,11 +4,11 @@
 
 ## 저장소
 
-- [서버](https://github.com/Hyundai-Mobility-Challenge/tonghak-server): Java Spring Boot API, MySQL, FCM 발송
-- [차량](https://github.com/Hyundai-Mobility-Challenge/tonghak-vehicle): Pleos 차량 Android 앱
-- [보호자](https://github.com/Hyundai-Mobility-Challenge/tonghak-parent): Android 보호자 앱
+- [서버](https://github.com/Hyundai-Mobility-Challenge/TayoTayo-server): Java Spring Boot API, MySQL, FCM 발송
+- [차량](https://github.com/Hyundai-Mobility-Challenge/TayoTayo-vehicle): Pleos 차량 Android 앱
+- [보호자](https://github.com/Hyundai-Mobility-Challenge/TayoTayo-parent): Android 보호자 앱
 
-세 저장소는 각각 독립적으로 빌드/실행합니다. Git submodule이나 나란히 놓인 원본 저장소가 필요하지 않습니다. `common/kotlin`과 `common/web`은 각 저장소에 필요한 사본을 포함합니다. 공통 API 계약이나 렌더러를 수정할 때 관련 저장소에도 같은 변경을 반영하세요.
+세 저장소는 각각 독립적으로 빌드/실행합니다. 전체 소스는 차량용 대표 저장소에서 `git clone --recurse-submodules`로 내려받습니다. `parent/`는 보호자 앱, `server/`는 서버 저장소를 가리킵니다. `common/kotlin`과 `common/web`은 각 저장소에 필요한 사본을 포함합니다. 공통 API 계약이나 렌더러를 수정할 때 관련 저장소에도 같은 변경을 반영하세요.
 
 ## 최초 연결
 
@@ -32,8 +32,8 @@
 
 ## Firebase 파일
 
-- 보호자 앱: `tonghak-parent/parent/google-services.json` (앱 ID `com.ssafy.tonghak.parent`에 해당하는 설정)
-- 서버: 저장소 밖의 서비스 계정 JSON을 `--credentials` 또는 `-CredentialPath`로 지정
+- 보호자 앱: 보호자 저장소 루트 기준 `parent/google-services.json` (앱 ID `com.ssafy.tonghak.parent`에 해당하는 설정)
+- 서버: 서버 저장소의 `backend/.secrets/server.properties`에서 `FIREBASE_CREDENTIALS_PATH`에 서비스 계정 JSON의 전체 경로를 지정합니다. JSON 파일은 저장소 밖에 보관합니다.
 - 서비스 계정 키는 APK에 넣지 않습니다. 두 설정 파일은 Git에서 제외됩니다.
 - Firebase 설정 없이도 보호자 앱을 빌드하고 API 기록을 조회할 수 있지만 푸시 등록/발송은 활성화되지 않습니다.
 
