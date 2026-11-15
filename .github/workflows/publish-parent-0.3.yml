@@ -1,0 +1,61 @@
+name: Publish verified guardian APK 0.3
+on:
+  push:
+    branches: [release/publish-parent-0.3-local-demo]
+    paths: ['.github/workflows/publish-parent-0.3.yml']
+permissions:
+  contents: write
+concurrency: publish-parent-0.3-local-demo
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    env:
+      SOURCE_SHA: '310dee2aadbe9a8dfbb6dbc8fd759dfc81dcebee'
+      EXPECTED_BLOB: '69a1deb76df30a13b4a35fb67c312effe2cd6c82'
+      APK_PATH: 'apk/꼬마버스_타요타요(학부모용)_release.apk'
+      ASSET: TayoTayo-parent-0.3-local-demo.apk
+      TAG: v0.3-local-demo
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: '310dee2aadbe9a8dfbb6dbc8fd759dfc81dcebee'
+          persist-credentials: false
+      - name: Verify the checked-in Android release
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git hash-object "$APK_PATH")" = "$EXPECTED_BLOB"
+          cp "$APK_PATH" "$RUNNER_TEMP/$ASSET"
+          sdk_tools="$(find "$ANDROID_HOME/build-tools" -mindepth 1 -maxdepth 1 -type d | sort -V | tail -1)"
+          "$sdk_tools/apksigner" verify --verbose "$APK_PATH"
+          "$sdk_tools/aapt" dump badging "$APK_PATH" > "$RUNNER_TEMP/badging"
+          head -1 "$RUNNER_TEMP/badging"
+          grep -F "name='com.ssafy.tonghak.parent' versionCode='3' versionName='0.3-local-demo'" "$RUNNER_TEMP/badging"
+          if grep -q '^application-debuggable' "$RUNNER_TEMP/badging"; then exit 1; fi
+          python3 - <<'PY'
+          import os, zipfile
+          with zipfile.ZipFile(os.environ["APK_PATH"]) as apk:
+              assert any(b"https://api-demo-e677ea0e.up.railway.app" in apk.read(name)
+                         for name in apk.namelist() if name.endswith(".dex")), "Missing demo origin"
+          PY
+          sha256sum "$RUNNER_TEMP/$ASSET"
+      - name: Publish the verified APK
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: Hyundai-Mobility-Challenge/TayoTayo-parent
+        run: |
+          set -euo pipefail
+          cd "$RUNNER_TEMP"
+          digest="$(sha256sum "$ASSET" | cut -d' ' -f1)"
+          cat > release-notes.md <<'NOTES'
+          Android 9 이상 휴대폰 또는 에뮬레이터에서 Assets의 **TayoTayo-parent-0.3-local-demo.apk**를 내려받아 설치하세요.
+
+          첫 설치 시 시연 서버 `https://api-demo-e677ea0e.up.railway.app`이 기본값입니다. 이전 서버 주소가 저장돼 있으면 로그인 화면의 **서버 주소 설정 → 적용**에서 변경할 수 있습니다.
+
+          심사용 보호자 이메일은 `pickup-judge@example.com`입니다. 별도 전달받은 비밀번호로 로그인하면 김하늘이 연결되어 있습니다. 등원 운행 준비는 [대표 저장소 시작하기](https://github.com/Hyundai-Mobility-Challenge/TayoTayo-vehicle#시작하기)를 참고하세요.
+          NOTES
+          printf '\nAPK SHA-256: `%s`\n' "$digest" >> release-notes.md
+          gh release create "$TAG" "$ASSET" --target "$SOURCE_SHA" --title '타요타요 보호자 앱 0.3-local-demo' --notes-file release-notes.md --draft
+          gh release edit "$TAG" --draft=false --latest
