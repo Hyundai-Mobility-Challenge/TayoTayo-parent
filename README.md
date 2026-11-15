@@ -33,9 +33,9 @@ macOS/Linux에서는 `./gradlew`를 사용합니다. SDK 경로는 Android Studi
 - 앱 모듈: `parent` (원본 모듈 이름 유지)
 - 앱 ID: `com.ssafy.tonghak.parent`
 - APK: `parent/build/outputs/apk/debug/parent-debug.apk`
-- 제출용 release APK: [`apk/parent-release.apk`](apk/parent-release.apk)
+- 제출용 release APK: [`apk/꼬마버스_타요타요(학부모용)_release.apk`](<apk/꼬마버스_타요타요(학부모용)_release.apk>)
 
-release APK는 현재 빌드 산출물입니다. 새 소스 변경을 반영하려면 `.\gradlew.bat :parent:assembleRelease`로 다시 빌드한 뒤 `parent/build/outputs/apk/release/parent-release.apk`를 `apk/parent-release.apk`로 복사해 배포하세요. 저장소의 `*.apk` 제외 규칙 때문에 새 APK 파일은 Git에 자동 추가되지 않습니다.
+release APK는 Railway 서버(`https://api-demo-e677ea0e.up.railway.app`)를 새 설치의 기본 주소로 사용합니다. 새 소스 변경을 반영하려면 `.\gradlew.bat :parent:assembleRelease`로 다시 빌드하고 서명한 뒤 위 APK를 교체하세요. 저장소의 `*.apk` 제외 규칙 때문에 새 APK 파일은 Git에 자동 추가되지 않습니다.
 
 ## Firebase 설정
 
@@ -45,12 +45,12 @@ release APK는 현재 빌드 산출물입니다. 새 소스 변경을 반영하�
 
 1. [TayoTayo 서버](https://github.com/Hyundai-Mobility-Challenge/TayoTayo-server)를 실행하고 기관·차량·정류장·경로·어린이 배정을 준비합니다.
 2. [Pleos 차량 앱](https://github.com/Hyundai-Mobility-Challenge/tonghak-vehicle)에 같은 서버 주소와 차량 페어링 코드를 설정합니다. 기관 웹/API에서 오늘의 운행을 생성한 뒤 차량 앱에서 운행을 불러옵니다.
-3. debug 로그인 화면 아래 `개발 서버 설정`을 열고 서버 주소를 에뮬레이터에서는 `http://10.0.2.2:8080`, 실제 휴대폰에서는 `http://<PC의 LAN IPv4>:8080`으로 입력합니다. 휴대폰에서 `127.0.0.1`은 PC를 가리키지 않습니다. 서버의 `/api/v1`은 앱이 자동으로 붙입니다.
+3. 로그인 화면 아래 `서버 주소 설정`을 열고 서버 주소를 에뮬레이터에서는 `http://10.0.2.2:8080`, 실제 휴대폰에서는 `http://<PC의 LAN IPv4>:8080`으로 입력합니다. 서버 PC가 바뀌면 이 주소만 다시 입력하면 됩니다. 휴대폰에서 `127.0.0.1`은 PC를 가리키지 않습니다. 서버의 `/api/v1`은 앱이 자동으로 붙입니다.
 4. 보호자는 회원가입 시 이메일 인증을 요청하고, 개발 환경에서 응답 메시지에 표시된 인증번호를 입력합니다. 이후 로그인하고 기관 관리자가 해당 이메일에 발급한 어린이 초대 코드를 수락합니다.
 5. 알림 권한을 허용하고 `푸시 등록 완료`를 확인합니다. 계정 연결과 푸시 등록에 USB는 필요하지 않습니다.
 6. 차량 앱에서 출발·위치·Pleos 예상 시간·정류장 도착·하차를 서버로 전송하고, 보호자 앱에서 오늘 운행의 위치·예상 시간·상태가 갱신되는지 확인합니다. 차량 앱과 보호자 앱은 서로 직접 연결하지 않고 같은 서버의 `/api/v1`을 사용합니다.
 
-개발용 HTTP는 debug 빌드에서 사용합니다. 공개 운영 서버에는 HTTPS가 필요합니다. [세 저장소 전체 연결 순서](docs/INTEGRATION.md)를 참고하세요.
+개발용 사설망 HTTP는 debug·release 빌드에서 사용할 수 있습니다. 공개 운영 서버에는 HTTPS가 필요합니다. [세 저장소 전체 연결 순서](docs/INTEGRATION.md)를 참고하세요.
 
 ## 구조와 검증
 

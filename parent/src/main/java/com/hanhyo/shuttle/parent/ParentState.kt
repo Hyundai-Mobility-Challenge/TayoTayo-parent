@@ -3,9 +3,11 @@ package com.hanhyo.shuttle.parent
 import org.json.JSONArray
 import org.json.JSONObject
 
+internal const val DEFAULT_SERVER_URL = "https://api-demo-e677ea0e.up.railway.app"
+
 /** Immutable snapshots. JSON values are compatibility adapters for the existing form UI. */
 data class ParentUiState(
-    val base: String = "http://192.168.33.128:8080",
+    val base: String = DEFAULT_SERVER_URL,
     val loggedIn: Boolean = false,
     val busy: Boolean = false,
     val foreground: Boolean = false,

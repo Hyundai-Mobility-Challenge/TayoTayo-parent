@@ -18,13 +18,13 @@ android {
         applicationId = "com.ssafy.tonghak.parent"
         minSdk = 28
         targetSdk = 36
-        versionCode = 2
-        versionName = "0.2-invitations"
+        versionCode = 3
+        versionName = "0.3-local-demo"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
     buildFeatures { compose = true; buildConfig = true }
     buildTypes {
-        getByName("debug") { buildConfigField("boolean", "DEMO_ETA", providers.gradleProperty("demoEta").orElse("true").get()) }
+        getByName("debug") { buildConfigField("boolean", "DEMO_ETA", providers.gradleProperty("demoEta").orElse("false").get()) }
         getByName("release") { buildConfigField("boolean", "DEMO_ETA", "false") }
     }
     sourceSets["main"].java.srcDir("../common/kotlin")
