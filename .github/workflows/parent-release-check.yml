@@ -1,0 +1,30 @@
+name: Parent release check
+on:
+  pull_request:
+    paths:
+      - 'parent/**'
+      - 'common/**'
+      - '.github/workflows/parent-release-check.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: android-actions/setup-android@v3
+      - name: Test and assemble release
+        run: bash gradlew :parent:testReleaseUnitTest :parent:assembleRelease -PtayoServerUrl=https://api-demo-e677ea0e.up.railway.app
+      - uses: actions/upload-artifact@v4
+        with:
+          name: parent-https-unsigned
+          path: parent/build/outputs/apk/release/*-unsigned.apk
+          if-no-files-found: error
+          retention-days: 7
