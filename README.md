@@ -10,7 +10,7 @@ Pleos 차량 앱에서 동승 선생님이 남긴 도착·인계·하차 기록�
 
 > 2026-11-15, Android 에뮬레이터에서 로컬 서버와 [Pleos 차량 앱](https://github.com/Hyundai-Mobility-Challenge/TayoTayo-vehicle)을 연결해 가상 아동 데이터로 찍은 화면입니다. 운행 중 화면의 예상 시간에는 앱이 "시연용 예상 시간 · 실제 교통 정보 아님"이라고 함께 표시합니다.
 
-[타요타요 전체 소개](https://github.com/Hyundai-Mobility-Challenge/TayoTayo-vehicle) · [기관 서버](https://github.com/Hyundai-Mobility-Challenge/TayoTayo-server) · [제출용 APK 내려받기](https://github.com/Hyundai-Mobility-Challenge/TayoTayo-parent/releases/download/v0.2-invitations/parent-release.apk)
+[타요타요 전체 소개](https://github.com/Hyundai-Mobility-Challenge/TayoTayo-vehicle) · [기관 서버](https://github.com/Hyundai-Mobility-Challenge/TayoTayo-server) · [보호자 APK 0.3-local-demo 내려받기](https://github.com/Hyundai-Mobility-Challenge/TayoTayo-parent/releases/download/v0.3-local-demo/TayoTayo-parent-0.3-local-demo.apk)
 
 ## 주요 기능
 
@@ -51,36 +51,22 @@ flowchart LR
 
 ### 1. 설치
 
-- 제출용 release APK: [parent-release.apk](https://github.com/Hyundai-Mobility-Challenge/TayoTayo-parent/releases/download/v0.2-invitations/parent-release.apk) · [저장소 안 사본](apk/parent-release.apk)
-- 직접 빌드: Android Studio에서 저장소 루트를 엽니다. Android SDK 36, JDK 17 이상이 필요하고 최소 API는 28입니다. Pleos SDK 없이 빌드됩니다.
-
-```sh
-./gradlew :parent:assembleDebug        # Windows: .\gradlew.bat
-```
-
-| 항목 | 값 |
-| --- | --- |
-| 앱 모듈 | `parent` |
-| 앱 ID | `com.ssafy.tonghak.parent` |
-| 디버그 APK | `parent/build/outputs/apk/debug/parent-debug.apk` |
-
-release APK를 새로 배포하려면 `:parent:assembleRelease`로 빌드한 뒤 `parent/build/outputs/apk/release/parent-release.apk`를 `apk/parent-release.apk`로 복사합니다. 저장소의 `*.apk` 제외 규칙 때문에 새 APK는 Git에 자동으로 추가되지 않습니다.
+Android 9 이상 휴대폰 또는 에뮬레이터에서 [보호자 APK 0.3-local-demo](https://github.com/Hyundai-Mobility-Challenge/TayoTayo-parent/releases/download/v0.3-local-demo/TayoTayo-parent-0.3-local-demo.apk)를 내려받아 설치합니다. 패키지 이름은 `com.ssafy.tonghak.parent`, 버전 코드는 `3`입니다. [릴리스 정보](https://github.com/Hyundai-Mobility-Challenge/TayoTayo-parent/releases/tag/v0.3-local-demo)
 
 ### 2. 서버 연결과 아이 연결
 
-1. [기관 서버](https://github.com/Hyundai-Mobility-Challenge/TayoTayo-server)를 실행하고 기관·차량·정류장·노선·원아 배정을 준비합니다.
-2. 로그인 화면 아래 **개발 서버 설정**에서 서버 주소를 입력합니다. `/api/v1`은 앱이 자동으로 붙입니다.
+1. 새로 설치하면 시연 서버 `https://api-demo-e677ea0e.up.railway.app`이 기본으로 설정됩니다. 이전 설치에서 다른 서버를 사용했다면 로그인 화면의 **서버 주소 설정**에서 이 주소를 입력하고 **적용**을 누르세요. `/api/v1`은 앱이 붙입니다.
+2. 심사용 이메일 `pickup-judge@example.com`과 별도로 전달받은 보호자 비밀번호로 로그인합니다. **김하늘**이 이미 연결돼 있으므로 가입이나 초대 코드 입력을 생략합니다.
+3. 차량을 먼저 페어링한 뒤 오늘 등원 운행을 만듭니다. 차량 앱에서 김하늘의 탑승과 기관 인계를 기록하면 보호자 앱에서 같은 아이의 상태를 확인할 수 있습니다. 시연 서버에서는 푸시가 꺼져 있으므로 홈에서 새로고침하세요. [차량 연결과 오늘 운행 생성 절차](https://github.com/Hyundai-Mobility-Challenge/TayoTayo-vehicle#시작하기)
 
-   | 실행 환경 | 서버 주소 |
-   | --- | --- |
-   | Android 에뮬레이터 | `http://10.0.2.2:8080` |
-   | 실제 휴대폰 (서버 PC와 같은 Wi-Fi) | `http://<서버 PC의 LAN IPv4>:8080` |
+다른 보호자 계정으로 시험할 때는 **처음이라면 보호자 가입**으로 가입한 뒤 기관이 그 이메일로 발급한 어린이 초대 코드를 **초대 코드 연결**에 입력합니다.
 
-3. **처음이라면 보호자 가입**으로 가입합니다. 개발 서버는 이메일을 보내지 않고 인증번호를 응답 메시지에 표시합니다.
-4. 기관이 해당 이메일로 발급한 **어린이 초대 코드**를 **초대 코드 연결**에 입력합니다. 차량 앱에 넣는 차량 페어링 코드와는 다른 코드입니다.
-5. 알림 권한을 허용하면 푸시 등록이 끝납니다.
+<details>
+<summary>개발용 디버그 APK 빌드</summary>
 
-개발용 HTTP는 로컬 시연용입니다. 공개 운영 서버에는 HTTPS가 필요합니다. 세 저장소를 함께 연결하는 전체 순서는 [연결 안내](docs/INTEGRATION.md)에 있습니다.
+Android SDK 36과 JDK 17 이상을 준비하고 저장소 루트에서 `./gradlew :parent:assembleDebug`를 실행합니다. Windows에서는 `.\gradlew.bat :parent:assembleDebug`를 사용합니다. 결과 파일은 `parent/build/outputs/apk/debug/parent-debug.apk`입니다.
+
+</details>
 
 ### 3. 서버 없이 화면만 보기
 
