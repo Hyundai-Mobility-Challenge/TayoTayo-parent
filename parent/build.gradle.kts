@@ -1,5 +1,6 @@
 import java.nio.file.Files
 import java.io.File
+import java.net.URI
 
 plugins {
     alias(libs.plugins.android.application)
@@ -10,6 +11,14 @@ plugins {
     id("com.google.gms.google-services") version "4.5.0" apply false
 }
 if (file("google-services.json").exists()) apply(plugin = "com.google.gms.google-services")
+val releaseServer = providers.gradleProperty("tayoServerUrl").orElse("").get().trim().trimEnd('/')
+if (releaseServer.isNotEmpty()) {
+    val uri = URI(releaseServer)
+    require(uri.scheme == "https" && uri.host != null && uri.userInfo == null &&
+        uri.path.isNullOrEmpty() && uri.query == null && uri.fragment == null && (uri.port == -1 || uri.port in 1..65535)) {
+        "tayoServerUrl must be an HTTPS origin, such as https://demo.example.com"
+    }
+}
 android {
     namespace = "com.hanhyo.shuttle.parent"
     compileSdk = 36
@@ -18,8 +27,9 @@ android {
         applicationId = "com.ssafy.tonghak.parent"
         minSdk = 28
         targetSdk = 36
-        versionCode = 2
-        versionName = "0.2-invitations"
+        versionCode = 3
+        versionName = "0.3-https"
+        buildConfigField("String", "DEFAULT_API_ORIGIN", "\"$releaseServer\"")
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
     buildFeatures { compose = true; buildConfig = true }

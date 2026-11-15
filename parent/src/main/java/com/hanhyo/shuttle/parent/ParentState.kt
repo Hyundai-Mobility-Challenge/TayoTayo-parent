@@ -3,9 +3,12 @@ package com.hanhyo.shuttle.parent
 import org.json.JSONArray
 import org.json.JSONObject
 
+internal val defaultApiOrigin: String
+    get() = if (BuildConfig.DEBUG) "http://10.0.2.2:8080" else BuildConfig.DEFAULT_API_ORIGIN
+
 /** Immutable snapshots. JSON values are compatibility adapters for the existing form UI. */
 data class ParentUiState(
-    val base: String = "http://192.168.33.128:8080",
+    val base: String = defaultApiOrigin,
     val loggedIn: Boolean = false,
     val busy: Boolean = false,
     val foreground: Boolean = false,

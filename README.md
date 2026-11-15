@@ -64,12 +64,18 @@ flowchart LR
 | 앱 ID | `com.ssafy.tonghak.parent` |
 | 디버그 APK | `parent/build/outputs/apk/debug/parent-debug.apk` |
 
-release APK를 새로 배포하려면 `:parent:assembleRelease`로 빌드한 뒤 `parent/build/outputs/apk/release/parent-release.apk`를 `apk/parent-release.apk`로 복사합니다. 저장소의 `*.apk` 제외 규칙 때문에 새 APK는 Git에 자동으로 추가되지 않습니다.
+심사용 HTTPS 주소를 기본값으로 넣으려면 PowerShell에서 아래처럼 실제 서버 주소를 지정해 빌드합니다. APK 서명에는 팀의 기존 release 서명 키를 사용합니다. 서명 후 직접 설치하고 배포 링크를 새 APK로 갱신합니다.
+
+```powershell
+.\gradlew.bat :parent:assembleRelease "-PtayoServerUrl=https://<실제-서버-호스트>"
+```
+
+0.3 버전부터 로그인 화면의 **HTTPS 서버 설정**에서도 주소를 입력할 수 있습니다. 주소에는 경로 없이 HTTPS 호스트와 필요한 포트만 입력합니다. 위에 연결된 0.2 배포본에는 이 설정 화면이 없습니다.
 
 ### 2. 서버 연결과 아이 연결
 
 1. [기관 서버](https://github.com/Hyundai-Mobility-Challenge/TayoTayo-server)를 실행하고 기관·차량·정류장·노선·원아 배정을 준비합니다.
-2. 로그인 화면 아래 **개발 서버 설정**에서 서버 주소를 입력합니다. `/api/v1`은 앱이 자동으로 붙입니다.
+2. 0.3 릴리스는 빌드에 지정한 HTTPS 주소를 사용하며 로그인 전 **HTTPS 서버 설정**에서 변경할 수 있습니다. 아래 HTTP 주소는 디버그 앱의 **개발 서버 설정**에서 사용합니다. `/api/v1`은 앱이 자동으로 붙입니다.
 
    | 실행 환경 | 서버 주소 |
    | --- | --- |

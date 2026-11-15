@@ -58,18 +58,20 @@ import androidx.compose.ui.unit.sp
             if(ui.busy) LinearProgressIndicator(Modifier.fillMaxWidth())
             if(ui.message.isNotBlank()) Text(ui.message,Modifier.testTag("parent-message"),style=MaterialTheme.typography.bodySmall,color=Majung.Secondary)
             NoteButton(if(join) if(verification.isBlank()) "인증번호 받기" else "인증하고 가입" else "로그인",
-                enabled=!ui.busy&&email.isNotBlank()&&password.length>=8&&(!join||name.isNotBlank()),modifier=Modifier.testTag("parent-auth")) {
+                enabled=!ui.busy&&server.isNotBlank()&&email.isNotBlank()&&password.length>=8&&(!join||name.isNotBlank()),modifier=Modifier.testTag("parent-auth")) {
                 vm.dispatch(ParentIntent.Authenticate(join,server,name,email.trim(),password,verification))
             }
             TextButton(onClick={join=!join},modifier=Modifier.align(Alignment.CenterHorizontally),enabled=!ui.busy) {
                 Text(if(join) "이미 계정이 있어요 · 로그인" else "처음이라면 보호자 가입  ›",color=Majung.Text)
             }
-            if(BuildConfig.DEBUG) TextButton(onClick={settings=true},modifier=Modifier.align(Alignment.CenterHorizontally)) { Text("개발 서버 설정",style=MaterialTheme.typography.bodySmall,color=Majung.Secondary) }
+            TextButton(onClick={settings=true},modifier=Modifier.align(Alignment.CenterHorizontally),enabled=!ui.busy) {
+                Text(if (BuildConfig.DEBUG) "개발 서버 설정" else "HTTPS 서버 설정",style=MaterialTheme.typography.bodySmall,color=Majung.Secondary)
+            }
             if(BuildConfig.DEBUG) TextButton(onClick={context.startActivity(android.content.Intent().setClassName(context,"com.hanhyo.shuttle.parent.DesignPreviewActivity"))},modifier=Modifier.align(Alignment.CenterHorizontally)) { Text("디자인 미리보기 · 시연 데이터",style=MaterialTheme.typography.bodySmall,color=Majung.Secondary) }
         }
     }
-    if(settings) AlertDialog(onDismissRequest={settings=false},title={Text("개발 서버")},text={
-        NoteField(server,{server=it},"API 주소","http://10.0.2.2:8080",Modifier.testTag("parent-server"),keyboardType=KeyboardType.Uri)
+    if(settings) AlertDialog(onDismissRequest={settings=false},title={Text(if (BuildConfig.DEBUG) "개발 서버" else "HTTPS 서버")},text={
+        NoteField(server,{server=it},"API 주소",if (BuildConfig.DEBUG) "http://10.0.2.2:8080" else "https://demo.example.com",Modifier.testTag("parent-server"),keyboardType=KeyboardType.Uri)
     },confirmButton={TextButton(onClick={settings=false}) { Text("적용",color=Majung.Text) }})
 }
 

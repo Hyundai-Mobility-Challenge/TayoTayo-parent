@@ -33,7 +33,7 @@ class ParentModel @Inject constructor(app: Application, private val repository: 
         request = { path, body, method -> request(path, body, method) })
     private val workMutex = Mutex()
     private val _uiState = MutableStateFlow(ParentUiState(
-        base = prefs.getString("base", "http://192.168.33.128:8080")!!,
+        base = prefs.getString("base", null) ?: defaultApiOrigin,
         loggedIn = prefs.contains("token")))
     val uiState: StateFlow<ParentUiState> = _uiState.asStateFlow()
     var base: String
@@ -81,7 +81,7 @@ class ParentModel @Inject constructor(app: Application, private val repository: 
     private fun putChildTools(id: String, value: JSONObject) { _uiState.update { it.copy(childTools = it.childTools + (id to value)) } }
 
     init {
-        viewModelScope.launch {
+        if (BuildConfig.DEBUG) viewModelScope.launch {
             runCatching {
                 val saved = settings.serverUrl.first()
                 if (saved != null) { base = saved; prefs.edit().putString("base", saved).apply() }
@@ -176,7 +176,7 @@ class ParentModel @Inject constructor(app: Application, private val repository: 
 
     fun authenticate(join: Boolean, server: String, name: String, email: String, password: String, verificationCode: String = "") = work {
         base = Api.base(server, BuildConfig.DEBUG)
-        settings.setServerUrl(base)
+        if (BuildConfig.DEBUG) settings.setServerUrl(base)
         prefs.edit().putString("base", base).apply()
         if (join) {
             if (verificationCode.isBlank()) {
