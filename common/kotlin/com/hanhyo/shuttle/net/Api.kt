@@ -15,7 +15,7 @@ object Api {
         val ip = uri.host.split('.').mapNotNull { it.toIntOrNull()?.takeIf { n -> n in 0..255 } }
         val privateIp = ip.size == 4 && (ip[0] == 10 || (ip[0] == 192 && ip[1] == 168) ||
             (ip[0] == 172 && ip[1] in 16..31) || uri.host == "127.0.0.1")
-        require(uri.scheme == "https" || (debug && uri.scheme == "http" && (privateIp || uri.host == "localhost"))) { "HTTPS 서버 주소가 필요합니다. 개발 앱에서는 내부망 HTTP도 사용할 수 있습니다." }
+        require(uri.scheme == "https" || (uri.scheme == "http" && (privateIp || (debug && uri.host == "localhost")))) { "HTTPS 또는 내부망 HTTP 서버 주소를 입력해 주세요." }
         return result
     }
     fun request(

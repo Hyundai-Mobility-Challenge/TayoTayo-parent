@@ -68,11 +68,10 @@ internal fun normalizeJourney(row: JSONObject, direction: SchoolDirection, now: 
         .put("reason",if(tripId.isBlank()) "오늘 예정된 ${direction.label} 운행을 확인해 주세요." else "차량에서 출발하면 소식을 알려드려요.")
 }
 
-/** Retain only route fields, never the other children's records from trip detail. */
+/** Guardian route response contains stop status and this child's stop ID only. */
 internal fun attachJourneyRoute(journey: JSONObject, trip: JSONObject, childId: String): JSONObject {
     if(trip.optString("id") != journey.optString("tripId") || trip.optString("direction") != journey.optString("direction")) return journey
-    val ownStopId=trip.optJSONArray("children")?.objects()
-        ?.singleOrNull { it.optString("childId")==childId }?.optString("tripStopId") ?: return journey
+    val ownStopId=trip.optString("ownStopId").takeIf { it.isNotBlank() } ?: return journey
     val stops=trip.optJSONArray("stops")?.objects()?.sortedBy { it.optInt("seq",Int.MAX_VALUE) }.orEmpty()
     val ownIndex=stops.indexOfFirst { it.optString("id")==ownStopId }
     if(ownIndex<0 || stops.any { it.optString("stopName").isBlank() }) return journey

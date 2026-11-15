@@ -33,7 +33,7 @@ class ParentModel @Inject constructor(app: Application, private val repository: 
         request = { path, body, method -> request(path, body, method) })
     private val workMutex = Mutex()
     private val _uiState = MutableStateFlow(ParentUiState(
-        base = prefs.getString("base", "http://192.168.33.128:8080")!!,
+        base = prefs.getString("base", DEFAULT_SERVER_URL)!!,
         loggedIn = prefs.contains("token")))
     val uiState: StateFlow<ParentUiState> = _uiState.asStateFlow()
     var base: String
@@ -309,7 +309,7 @@ class ParentModel @Inject constructor(app: Application, private val repository: 
         // Only follow a trip ID obtained from the guardian-authorized response.
         // A failed optional route lookup must not discard the child's own status.
         return try {
-            attachJourneyRoute(journey, request("/api/v1/trips/$tripId"), childId)
+            attachJourneyRoute(journey, request("/api/v1/guardian/trips/$tripId/children/$childId/route"), childId)
         } catch (e: Exception) {
             if (e is ApiFailure && e.status == 401) throw e
             journey

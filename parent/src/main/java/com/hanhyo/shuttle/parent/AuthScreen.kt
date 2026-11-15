@@ -64,11 +64,11 @@ import androidx.compose.ui.unit.sp
             TextButton(onClick={join=!join},modifier=Modifier.align(Alignment.CenterHorizontally),enabled=!ui.busy) {
                 Text(if(join) "이미 계정이 있어요 · 로그인" else "처음이라면 보호자 가입  ›",color=Majung.Text)
             }
-            if(BuildConfig.DEBUG) TextButton(onClick={settings=true},modifier=Modifier.align(Alignment.CenterHorizontally)) { Text("개발 서버 설정",style=MaterialTheme.typography.bodySmall,color=Majung.Secondary) }
+            TextButton(onClick={settings=true},modifier=Modifier.align(Alignment.CenterHorizontally)) { Text("서버 주소 설정",style=MaterialTheme.typography.bodySmall,color=Majung.Secondary) }
             if(BuildConfig.DEBUG) TextButton(onClick={context.startActivity(android.content.Intent().setClassName(context,"com.hanhyo.shuttle.parent.DesignPreviewActivity"))},modifier=Modifier.align(Alignment.CenterHorizontally)) { Text("디자인 미리보기 · 시연 데이터",style=MaterialTheme.typography.bodySmall,color=Majung.Secondary) }
         }
     }
-    if(settings) AlertDialog(onDismissRequest={settings=false},title={Text("개발 서버")},text={
+    if(settings) AlertDialog(onDismissRequest={settings=false},title={Text("서버 주소")},text={
         NoteField(server,{server=it},"API 주소","http://10.0.2.2:8080",Modifier.testTag("parent-server"),keyboardType=KeyboardType.Uri)
     },confirmButton={TextButton(onClick={settings=false}) { Text("적용",color=Majung.Text) }})
 }
