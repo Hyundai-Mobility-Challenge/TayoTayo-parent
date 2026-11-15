@@ -33,7 +33,7 @@ class DesignPreviewActivity:ComponentActivity() {
             Column(Modifier.fillMaxSize()) {
                 Surface(color=Majung.Pale) {
                     Row(Modifier.fillMaxWidth().statusBarsPadding().padding(horizontal=12.dp),horizontalArrangement=Arrangement.SpaceBetween) {
-                        TextButton(onClick={scenario=(scenario+1)%3}) {Text("시연 데이터 · ${listOf("하원 운행","등원 대기","하차 완료")[scenario]}",color=Majung.Text)}
+                        TextButton(onClick={scenario=(scenario+1)%3}) {Text("시연 데이터 · ${listOf("하원 운행","등원 운행","하차 완료")[scenario]}",color=Majung.Text)}
                         TextButton(onClick={calls=true;response=null}) {Text("호출 시연",color=Majung.Text)}
                     }
                 }
@@ -61,11 +61,18 @@ internal fun previewChildren()=listOf(
 
 internal fun previewJourney(scenario:Int=0):JSONObject {
     val now=System.currentTimeMillis()
-    val row=JSONObject().put("tripId","preview-trip").put("tripStatus",if(scenario==1)"SCHEDULED" else "IN_PROGRESS")
-        .put("childStatus",if(scenario==2)"DROPPED_OFF" else "BOARDED").put("stopName","은행나무공원 앞")
+    // Screenshot-matched fixtures only; these stops are not returned by the guardian API.
+    val row=JSONObject().put("tripId","preview-trip").put("tripStatus","IN_PROGRESS")
+        .put("childStatus",if(scenario==2)"DROPPED_OFF" else "BOARDED").put("stopName","화랑공원 앞")
     val journey=normalizeJourney(row,if(scenario==1)SchoolDirection.Morning else SchoolDirection.Afternoon)
     journey.put("stale",false).put("source","PREVIEW").put("eta",JSONObject().put("minutes",5).put("receivedAt",now))
-        .put("progress",JSONArray("""[{"name":"햇살어린이집","visited":true},{"name":"새봄아파트","visited":false},{"name":"은행나무공원 앞","visited":false,"own":true}]"""))
+        .put("routeAvailable",true)
+        .put("progress",JSONArray("""[{"name":"촬영용 출발","visited":true},{"name":"판교도서관 앞","visited":false},{"name":"판교역 앞","visited":false},{"name":"화랑공원 앞","visited":false,"own":true}]"""))
         .put("timeline",JSONObject().put("current",0).put("fraction",0.65).put("paused",false))
+    if(scenario==2) {
+        journey.put("eta",JSONObject.NULL)
+        journey.optJSONArray("progress")?.objects()?.forEach { it.put("visited",true) }
+        journey.put("timeline",JSONObject().put("current",3).put("fraction",0).put("paused",true))
+    }
     return journey
 }

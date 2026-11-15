@@ -31,6 +31,17 @@ import org.json.JSONObject
     val connectionError=data?.optBoolean("connectionError")==true
     val eta=data?.optJSONObject("eta")?.takeIf { now-it.optLong("receivedAt") in 0..JOURNEY_FRESHNESS_MS && !connectionError && !complete&&!handed&&!arrived&&!ended }
     val stale=data?.optBoolean("stale")==true||now-(data?.optLong("clientReceivedAt")?:0)>30_000
+    val completionTitle=data?.let(::journeyCompletionTitle)
+    if(data!=null && completionTitle!=null) {
+        Surface(color=Majung.Card,shape=RoundedCornerShape(24.dp),modifier=Modifier.testTag("journey-completion")) {
+            Column(Modifier.fillMaxWidth().padding(24.dp),horizontalAlignment=Alignment.CenterHorizontally,verticalArrangement=Arrangement.spacedBy(12.dp)) {
+                DesignAsset("08de1.png",null,Modifier.size(88.dp))
+                Text(completionTitle,fontFamily=Majung.Hand,fontSize=24.sp,fontWeight=FontWeight.Bold)
+                Text(if(handed) "보호자 인계 확인 · 하차 기록 대기" else if(data.optLong("handedOverAt")>0) "보호자 인계 · 하차 완료" else "선생님이 하차를 기록했어요. 보호자 인계는 별도 확인이 필요해요.",style=MaterialTheme.typography.bodySmall,color=Majung.Secondary,textAlign=androidx.compose.ui.text.style.TextAlign.Center)
+            }
+        }
+        return
+    }
     if(data==null||!active) {
         EmptyNote(if(connectionError) "연결을 확인해 주세요" else if(data==null) "운행 소식을 확인해요" else "오늘의 출발을 기다려요",data?.optString("reason")?:"연결되면 자동으로 갱신됩니다.")
         return
@@ -43,6 +54,7 @@ import org.json.JSONObject
                     Text(when {handed->"인계 기록 · 하차 대기";complete->"오늘의 ${direction.label} 기록";arrived->"도착 · 인계 대기";ended->"기록 확인 필요";else->"${direction.label} 운행 중"},style=MaterialTheme.typography.bodySmall)
                     Text(title,fontSize=23.sp,lineHeight=31.sp,fontWeight=FontWeight.Bold)
                     Text(data.optJSONObject("pickup")?.optString("name").orEmpty(),style=MaterialTheme.typography.bodySmall,color=Majung.Secondary)
+                    if(eta?.optString("kind")=="DEMO_SYNTHETIC") Text("시연용 예상 시간 · 실제 교통 정보 아님",style=MaterialTheme.typography.bodySmall,color=Majung.Secondary)
                 }
                 DesignAsset("08de1.png",null,Modifier.padding(start=8.dp).size(64.dp))
             }
@@ -76,18 +88,18 @@ import org.json.JSONObject
                         Surface(Modifier.size(22.dp),color=if(stop.optBoolean("visited"))Majung.Text else Majung.Card,shape=CircleShape,border=BorderStroke(1.dp,Majung.Border)) {
                             Box(contentAlignment=Alignment.Center) {
                                 if(stop.optBoolean("visited")) DesignAsset("85340.svg",null,Modifier.size(14.dp))
-                                else if(stop.optBoolean("own")||index==stops.lastIndex) DesignAsset("3eda5.svg",null,Modifier.size(18.dp))
+                                else if(stop.optBoolean("own")) DesignAsset("3eda5.svg",null,Modifier.size(18.dp))
                             }
                         }
                     }
                     Column(Modifier.weight(1f).padding(start=12.dp),verticalArrangement=Arrangement.spacedBy(4.dp)) {
                         Text(stop.optString("name"),style=MaterialTheme.typography.titleSmall)
-                        Text(if(stop.optBoolean("visited")) "지나왔어요" else if(stop.optBoolean("own")||index==stops.lastIndex) "우리 아이 정류장" else "다음 정류장",style=MaterialTheme.typography.bodySmall,color=Majung.Secondary)
+                        Text(stop.optString("label").ifBlank { if(stop.optBoolean("visited")) "지나왔어요" else if(stop.optBoolean("own")) "우리 아이 정류장" else "다음 정류장" },style=MaterialTheme.typography.bodySmall,color=Majung.Secondary)
                     }
                 }
             }
         }
-        if(stops.size>1&&!paused&&timeline?.optBoolean("paused")!=true) {
+        if(data.optInt("confirmedStopIndex",-1)>=0 || (stops.size>1&&!paused&&timeline?.optBoolean("paused")!=true)) {
             Box(Modifier.offset(x=6.dp,y=(animated*68+20).dp).size(28.dp).clip(CircleShape).background(Majung.Yellow),contentAlignment=Alignment.Center) {
                 DesignAsset("cb96d.svg",null,Modifier.size(16.dp))
             }

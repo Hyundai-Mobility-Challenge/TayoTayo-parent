@@ -30,7 +30,7 @@ class NotificationUiTest {
         compose.setContent { MajungTheme { NotificationScreen("가상 둘째", data, "", false, {}, {}) } }
         compose.onNodeWithText("가상 둘째 · 운행 소식").assertIsDisplayed()
         compose.onNodeWithText("2026-11-12").assertIsDisplayed()
-        compose.onNodeWithText("하차했어요").assertIsDisplayed()
+        compose.onNodeWithText("하차 기록이 확인됐어요").assertIsDisplayed()
     }
 
     @Test fun failedConnectionHidesPreviouslyValidEta() {
