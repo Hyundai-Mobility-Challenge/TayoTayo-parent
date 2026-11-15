@@ -51,6 +51,7 @@ internal fun normalizeJourney(row: JSONObject, direction: SchoolDirection, now: 
         .put("phase",status).put("serviceDate",row.optString("serviceDate").serviceDateText()).put("serverTime",now/1000.0).put("clientReceivedAt",now)
         .put("location",location).put("source","SERVER").put("stale",location==JSONObject.NULL||now-locationAt>30_000)
         .put("startedAt",row.optString("startedAt").epochMillis()).put("completedAt",row.optString("droppedOffAt").epochMillis())
+        .put("handedOverAt",row.optString("handedOverAt").epochMillis())
         .put("pickup",JSONObject().put("name",stopName)).put("progress",progress)
         .put("timeline",JSONObject().put("current",0).put("fraction",0).put("paused",true).put("ownEta",eta))
         .put("eta",eta).put("remainingStops",JSONObject.NULL).put("shares",JSONArray())
@@ -67,7 +68,51 @@ internal fun normalizeJourney(row: JSONObject, direction: SchoolDirection, now: 
         .put("reason",if(tripId.isBlank()) "오늘 예정된 ${direction.label} 운행을 확인해 주세요." else "차량에서 출발하면 소식을 알려드려요.")
 }
 
+/** Retain only route fields, never the other children's records from trip detail. */
+internal fun attachJourneyRoute(journey: JSONObject, trip: JSONObject, childId: String): JSONObject {
+    if(trip.optString("id") != journey.optString("tripId") || trip.optString("direction") != journey.optString("direction")) return journey
+    val ownStopId=trip.optJSONArray("children")?.objects()
+        ?.singleOrNull { it.optString("childId")==childId }?.optString("tripStopId") ?: return journey
+    val stops=trip.optJSONArray("stops")?.objects()?.sortedBy { it.optInt("seq",Int.MAX_VALUE) }.orEmpty()
+    val ownIndex=stops.indexOfFirst { it.optString("id")==ownStopId }
+    if(ownIndex<0 || stops.any { it.optString("stopName").isBlank() }) return journey
+    val ownArrived=journey.optString("journeyStatus") in listOf("ARRIVED","HANDED_OVER","COMPLETED")
+    val progress=JSONArray()
+    stops.forEachIndexed { index, stop ->
+        val own=index==ownIndex
+        progress.put(JSONObject().put("name",stop.optString("stopName")).put("own",own)
+            .put("visited",stop.optString("status")=="COMPLETED" || (own && journey.optString("childStatus")=="DROPPED_OFF"))
+            .put("label",when {
+                own && ownArrived -> if(journey.optString("childStatus")=="DROPPED_OFF") "우리 아이 하차 완료" else "우리 아이 정류장 도착"
+                stop.optString("status")=="COMPLETED" -> "방문 완료"
+                stop.optString("status")=="ARRIVED" -> "도착 확인"
+                stop.optString("status")=="SKIPPED" -> "방문 제외"
+                own -> "우리 아이 정류장"
+                else -> "예정 정류장"
+            }))
+    }
+    val confirmedIndex=if(ownArrived)ownIndex else stops.indexOfFirst { it.optString("status")=="ARRIVED" }
+    return journey.put("progress",progress).put("routeAvailable",true)
+        .put("confirmedStopIndex",confirmedIndex)
+        .put("timeline",JSONObject().put("current",confirmedIndex.coerceAtLeast(0)).put("fraction",0).put("paused",true))
+}
+
 internal fun JSONArray.objects(): List<JSONObject> = (0 until length()).mapNotNull { optJSONObject(it) }
+
+/** Demo fallback only; never infer arrival or override a real ETA or terminal record. */
+internal fun withDemoEta(data: JSONObject, enabled: Boolean, now: Long=System.currentTimeMillis()): JSONObject {
+    if(!enabled || data.optBoolean("connectionError") || data.optString("phase")!="IN_PROGRESS" ||
+        data.optString("journeyStatus")!="IN_PROGRESS" || data.optJSONObject("eta")!=null) return data
+    val minutes=if(data.optString("direction")=="PICK_UP")15 else 6
+    return JSONObject(data.toString()).put("eta",JSONObject().put("minutes",minutes).put("seconds",minutes*60)
+        .put("receivedAt",now).put("kind","DEMO_SYNTHETIC")).put("etaReason","")
+}
+
+internal fun journeyCompletionTitle(data: JSONObject): String? = when(data.optString("journeyStatus")) {
+    "HANDED_OVER" -> "오늘도 잘 마중했어요"
+    "COMPLETED" -> if(data.optLong("handedOverAt")>0) "오늘도 잘 마중했어요" else "하차 기록이 확인됐어요"
+    else -> null
+}
 internal fun requestTypeLabel(type: String)=when(type) { "NOT_RIDING"->"차량 이용 안 함";"ABSENT"->"결석";"SELF_PICKUP"->"직접 데리러 가요";"STOP_CHANGE"->"정류장 변경";else->type }
 internal fun requestStatusLabel(status: String)=when(status) { "PENDING"->"확인 대기";"APPROVED"->"승인됨";"REJECTED"->"반려";"CANCELLED"->"취소됨";else->status }
 

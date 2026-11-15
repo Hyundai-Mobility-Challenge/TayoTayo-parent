@@ -138,7 +138,7 @@ class ParentModel @Inject constructor(app: Application, private val repository: 
             val today = request("/api/v1/guardian/children/${target.childId}/today?direction=${direction.api}")
             // Never display another trip's ETA on a historical notification.
             val row = if (today.optString("tripId") == target.tripId) today else detail
-            notificationData = shares.reconcile(target.childId, normalizeJourney(row, direction))
+            notificationData = shares.reconcile(target.childId, loadJourney(row, direction, target.childId))
             notificationChildName = child.optString("name")
         } catch (e: Exception) {
             notificationData = null
@@ -303,6 +303,19 @@ class ParentModel @Inject constructor(app: Application, private val repository: 
         work { loadTracking() }
     }
 
+    private fun loadJourney(row: JSONObject, direction: SchoolDirection, childId: String): JSONObject {
+        val journey = withDemoEta(normalizeJourney(row, direction), BuildConfig.DEMO_ETA)
+        val tripId = row.optString("tripId").takeIf { it.toLongOrNull()?.let { id -> id > 0 } == true } ?: return journey
+        // Only follow a trip ID obtained from the guardian-authorized response.
+        // A failed optional route lookup must not discard the child's own status.
+        return try {
+            attachJourneyRoute(journey, request("/api/v1/trips/$tripId"), childId)
+        } catch (e: Exception) {
+            if (e is ApiFailure && e.status == 401) throw e
+            journey
+        }
+    }
+
     private fun loadTracking() {
         val children = state.optJSONArray("children") ?: return
         for (i in 0 until children.length()) {
@@ -311,8 +324,8 @@ class ParentModel @Inject constructor(app: Application, private val repository: 
             val morning = request("/api/v1/guardian/children/$childId/today?direction=PICK_UP")
             val afternoon = request("/api/v1/guardian/children/$childId/today?direction=DROP_OFF")
             val direction = chooseDirection(morning, afternoon, java.time.LocalTime.now(java.time.ZoneId.of("Asia/Seoul")))
-            putMorningTracking(childId, shares.reconcile(childId, normalizeJourney(morning, SchoolDirection.Morning)))
-            putAfternoonTracking(childId, shares.reconcile(childId, normalizeJourney(afternoon, SchoolDirection.Afternoon)))
+            putMorningTracking(childId, shares.reconcile(childId, loadJourney(morning, SchoolDirection.Morning, childId)))
+            putAfternoonTracking(childId, shares.reconcile(childId, loadJourney(afternoon, SchoolDirection.Afternoon, childId)))
             putDirections(childId, direction)
             putTracking(childId, if (direction == SchoolDirection.Morning) morningTracking[childId]!! else afternoonTracking[childId]!!)
             } catch (e: Exception) {

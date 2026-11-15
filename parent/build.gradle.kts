@@ -23,6 +23,10 @@ android {
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
     buildFeatures { compose = true; buildConfig = true }
+    buildTypes {
+        getByName("debug") { buildConfigField("boolean", "DEMO_ETA", providers.gradleProperty("demoEta").orElse("true").get()) }
+        getByName("release") { buildConfigField("boolean", "DEMO_ETA", "false") }
+    }
     sourceSets["main"].java.srcDir("../common/kotlin")
     sourceSets["main"].assets.srcDir("../common/web")
     compileOptions {
