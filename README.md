@@ -33,9 +33,9 @@ macOS/Linux에서는 `./gradlew`를 사용합니다. SDK 경로는 Android Studi
 - 앱 모듈: `parent` (원본 모듈 이름 유지)
 - 앱 ID: `com.ssafy.tonghak.parent`
 - APK: `parent/build/outputs/apk/debug/parent-debug.apk`
-- 준비된 release APK: `parent/release/parent-release.apk` (`parent/release/parent_app_apk.zip`에도 포함)
+- 제출용 release APK: [`apk/parent-release.apk`](apk/parent-release.apk)
 
-release APK는 현재 빌드 산출물입니다. 새 소스 변경을 반영하려면 `.\gradlew.bat :parent:assembleRelease`로 다시 빌드한 뒤 새 APK를 배포하세요. 저장소의 `*.apk` 제외 규칙 때문에 APK 파일 자체는 Git에 자동 추가되지 않습니다.
+release APK는 현재 빌드 산출물입니다. 새 소스 변경을 반영하려면 `.\gradlew.bat :parent:assembleRelease`로 다시 빌드한 뒤 `parent/build/outputs/apk/release/parent-release.apk`를 `apk/parent-release.apk`로 복사해 배포하세요. 저장소의 `*.apk` 제외 규칙 때문에 새 APK 파일은 Git에 자동 추가되지 않습니다.
 
 ## Firebase 설정
 
